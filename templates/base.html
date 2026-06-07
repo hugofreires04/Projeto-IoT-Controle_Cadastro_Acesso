@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Acesso RFID</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav>
+        <span class="nav-title">Controle de Acesso RFID</span>
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('tela_cadastrar') }}">Cadastrar Funcionário</a>
+    </nav>
+
+    <main>
+        {% block conteudo %}{% endblock %}
+    </main>
+</body>
+</html>

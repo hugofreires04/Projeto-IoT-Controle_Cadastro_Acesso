@@ -1,0 +1,234 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    background: #f5f5f5;
+    color: #333;
+}
+
+/* ── Navegação ─────────────────────────────────────────────── */
+
+nav {
+    background: #1a1a2e;
+    color: white;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.nav-title {
+    font-weight: bold;
+    font-size: 16px;
+    margin-right: auto;
+}
+
+nav a {
+    color: #a8c6e8;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+nav a:hover {
+    color: white;
+    text-decoration: underline;
+}
+
+/* ── Conteúdo principal ────────────────────────────────────── */
+
+main {
+    max-width: 1000px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+h1 {
+    font-size: 22px;
+    margin-bottom: 20px;
+    color: #1a1a2e;
+}
+
+h2 {
+    font-size: 18px;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    color: #1a1a2e;
+}
+
+/* ── Tabelas ───────────────────────────────────────────────── */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+thead {
+    background: #1a1a2e;
+    color: white;
+}
+
+th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+tbody tr:hover {
+    background: #f0f4ff;
+}
+
+code {
+    background: #eef;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+/* ── Badges de status ──────────────────────────────────────── */
+
+.badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.badge.ativo {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge.inativo {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* ── Links e botões na tabela ──────────────────────────────── */
+
+td a {
+    color: #0056b3;
+    text-decoration: none;
+}
+
+td a:hover {
+    text-decoration: underline;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: #c0392b;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    text-decoration: none;
+}
+
+.btn-link:hover {
+    text-decoration: underline;
+}
+
+/* ── Formulários ───────────────────────────────────────────── */
+
+form {
+    background: white;
+    padding: 24px;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    max-width: 480px;
+}
+
+.campo {
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.campo label {
+    font-weight: bold;
+    color: #444;
+}
+
+.campo input[type="text"],
+.campo input[type="email"] {
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    width: 100%;
+}
+
+.campo input:focus {
+    outline: none;
+    border-color: #1a1a2e;
+}
+
+.campo small {
+    color: #777;
+    font-size: 12px;
+}
+
+.campo-checkbox {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.campo-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.campo-checkbox label {
+    font-weight: normal;
+    cursor: pointer;
+}
+
+/* ── Ações do formulário ───────────────────────────────────── */
+
+.acoes {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.acoes button[type="submit"] {
+    background: #1a1a2e;
+    color: white;
+    border: none;
+    padding: 9px 20px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.acoes button[type="submit"]:hover {
+    background: #2e2e5e;
+}
+
+.acoes a {
+    color: #555;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.acoes a:hover {
+    text-decoration: underline;
+}
