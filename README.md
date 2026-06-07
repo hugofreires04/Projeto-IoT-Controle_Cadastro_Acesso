@@ -73,9 +73,10 @@ O painel admin estará disponível em: `http://localhost:5000`
 | PUT | `/api/funcionarios/<id>` | Edita funcionário |
 | DELETE | `/api/funcionarios/<id>` | Deleta funcionário |
 | GET | `/api/acesso/<uid>` | Verifica permissão pelo UID do cartão |
-| POST | `/api/acesso/registrar` | Registra log de acesso |
+| POST | `/api/acesso/log` | Registra log de acesso |
 | GET | `/api/logs` | Últimos 100 logs de acesso |
 | GET | `/api/logs/<uid>` | Últimos 50 logs de um funcionário |
+| GET | `/api/stats` | Acessos agrupados por hora nas últimas 24h (para Grafana) |
 
 ## Exemplos de payload MQTT para testar
 

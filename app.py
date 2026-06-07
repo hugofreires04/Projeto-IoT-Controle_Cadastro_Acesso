@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
 import psycopg2
 import psycopg2.extras
 import config
@@ -148,7 +148,7 @@ def verificar_acesso(uid):
         conn.close()
 
 
-@app.route("/api/acesso/registrar", methods=["POST"])
+@app.route("/api/acesso/log", methods=["POST"])
 def registrar_acesso():
     dados = request.get_json(force=True)
     uid_cartao       = normalizar_uid(dados.get("uid_cartao", ""))
@@ -211,6 +211,31 @@ def logs_por_uid(uid):
         conn.close()
 
 
+@app.route("/api/stats", methods=["GET"])
+def estatisticas():
+    """Retorna contagem de acessos agrupados por hora (para Grafana)."""
+    conn = get_conn()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            """SELECT
+                time_bucket('1 hour', data_hora) AS time,
+                COUNT(*) AS total,
+                SUM(CASE WHEN tipo = 'entrada' THEN 1 ELSE 0 END) AS entradas,
+                SUM(CASE WHEN tipo = 'saida'   THEN 1 ELSE 0 END) AS saidas,
+                SUM(CASE WHEN autorizado = TRUE THEN 1 ELSE 0 END) AS autorizados,
+                SUM(CASE WHEN autorizado = FALSE THEN 1 ELSE 0 END) AS negados
+               FROM logs_acesso
+               WHERE data_hora >= now() - INTERVAL '24 hours'
+               GROUP BY time
+               ORDER BY time ASC"""
+        )
+        rows = cur.fetchall()
+        return jsonify([dict(r) for r in rows])
+    finally:
+        conn.close()
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # Painel Admin — HTML
 # ════════════════════════════════════════════════════════════════════════════
@@ -246,6 +271,10 @@ def processar_cadastro():
     cargo      = request.form.get("cargo", "").strip()
     ativo      = request.form.get("ativo") == "on"
 
+    if not nome or not uid_cartao:
+        flash("Nome e UID do cartão são obrigatórios.", "erro")
+        return redirect(url_for("tela_cadastrar"))
+
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -255,6 +284,13 @@ def processar_cadastro():
             (nome, uid_cartao, cargo, ativo)
         )
         conn.commit()
+        flash(f"Funcionário '{nome}' cadastrado com sucesso!", "sucesso")
+    except Exception as e:
+        conn.rollback()
+        if "unique" in str(e).lower() or "uid_cartao" in str(e).lower():
+            flash(f"Erro: UID '{uid_cartao}' já está cadastrado.", "erro")
+        else:
+            flash("Erro ao cadastrar funcionário. Tente novamente.", "erro")
     finally:
         conn.close()
 
@@ -292,6 +328,13 @@ def processar_edicao(id):
             (nome, uid_cartao, cargo, ativo, id)
         )
         conn.commit()
+        flash(f"Funcionário atualizado com sucesso!", "sucesso")
+    except Exception as e:
+        conn.rollback()
+        if "unique" in str(e).lower() or "uid_cartao" in str(e).lower():
+            flash(f"Erro: UID '{uid_cartao}' já está cadastrado.", "erro")
+        else:
+            flash("Erro ao atualizar funcionário. Tente novamente.", "erro")
     finally:
         conn.close()
 
@@ -305,6 +348,7 @@ def deletar_funcionario(id):
         cur = conn.cursor()
         cur.execute("DELETE FROM funcionarios WHERE id = %s", (id,))
         conn.commit()
+        flash(f"Funcionário removido.", "sucesso")
     finally:
         conn.close()
 

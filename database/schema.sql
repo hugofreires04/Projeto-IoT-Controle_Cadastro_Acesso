@@ -30,3 +30,6 @@ INSERT INTO funcionarios (nome, uid_cartao, cargo, ativo) VALUES
     ('Maria Oliveira','A3 BC 12 F0', 'Engenheira de Hardware', TRUE),
     ('Carlos Souza',  '7F 2A 98 3C', 'Estagiário', FALSE)
 ON CONFLICT (uid_cartao) DO NOTHING;
+
+-- Índice para consultas de log por funcionário
+CREATE INDEX IF NOT EXISTS idx_logs_uid_cartao ON logs_acesso (uid_cartao, data_hora DESC);
