@@ -40,6 +40,10 @@ DATABASE_URL=postgresql://SEU_USUARIO:SUA_SENHA@localhost:5432/acesso_rfid
 SECRET_KEY=uma-chave-secreta-qualquer
 MQTT_BROKER=localhost
 MQTT_PORT=1883
+
+FLASK_HOST=0.0.0.0
+FLASK_PORT=5000
+FLASK_DEBUG=true
 ```
 
 ### 3. Instalar dependências Python
