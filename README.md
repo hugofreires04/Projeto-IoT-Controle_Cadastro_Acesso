@@ -12,6 +12,21 @@ ESP32 (RFID) → MQTT Broker (Mosquitto) → Node-RED → Flask (REST API) → P
                                                      Painel Admin (HTML)
 ```
 
+## Estrutura do projeto
+
+```
+app.py                       → cria a app Flask e registra as rotas (ponto de entrada)
+config.py                    → configurações via variáveis de ambiente
+db.py                        → conexão com o banco e normalização do UID
+routes/
+├── api_funcionarios.py      → API REST de funcionários (CRUD)
+├── api_acesso.py            → API REST de controle de acesso, logs e stats
+└── painel.py                → painel admin (HTML)
+templates/                    → páginas HTML (Jinja2)
+static/style.css              → estilos do painel admin
+database/schema.sql           → schema do banco (TimescaleDB)
+```
+
 ## Requisitos
 
 - Python 3.10+

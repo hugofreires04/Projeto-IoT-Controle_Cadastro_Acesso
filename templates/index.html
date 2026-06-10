@@ -27,9 +27,9 @@
                 {% endif %}
             </td>
             <td>
-                <a href="{{ url_for('tela_editar', id=f.id) }}">Editar</a>
+                <a href="{{ url_for('painel.tela_editar', id=f.id) }}">Editar</a>
                 |
-                <form action="{{ url_for('deletar_funcionario', id=f.id) }}" method="POST"
+                <form action="{{ url_for('painel.deletar_funcionario', id=f.id) }}" method="POST"
                       style="display:inline"
                       onsubmit="return confirm('Deletar {{ f.nome }}?')">
                     <button type="submit" class="btn-link">Deletar</button>
