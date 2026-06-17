@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Histórico — Controle de Acesso RFID</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <span class="nav-title">Controle de Acesso RFID</span>
+        <span id="header-usuario-nome" class="nav-usuario"></span>
+        <button id="btn-sair" class="btn-link">Sair</button>
+    </nav>
+
+    <main>
+        <h1>Meu histórico de acessos</h1>
+
+        <div class="filtros">
+            <select id="filtro-area">
+                <option value="">Todas as áreas</option>
+            </select>
+            <label>De <input type="date" id="filtro-data-inicio"></label>
+            <label>Até <input type="date" id="filtro-data-fim"></label>
+        </div>
+
+        <div class="badges-filtro">
+            <button class="badge-filtro ativo" data-resultado="">Todos</button>
+            <button class="badge-filtro" data-resultado="liberado">Liberado</button>
+            <button class="badge-filtro" data-resultado="negado_sem_permissao">Negado sem permissão</button>
+            <button class="badge-filtro" data-resultado="negado_inativo">Negado inativo</button>
+            <button class="badge-filtro" data-resultado="negado_desconhecido">Negado desconhecido</button>
+        </div>
+
+        <div class="acoes">
+            <button id="btn-aplicar-filtros">Aplicar filtros</button>
+            <button id="btn-exportar-csv">Exportar CSV</button>
+        </div>
+
+        <p id="totalizador" class="totalizador"></p>
+
+        <table>
+            <thead>
+                <tr><th>Funcionário</th><th>Área</th><th>Resultado</th><th>Data/Hora</th></tr>
+            </thead>
+            <tbody id="tabela-acessos-corpo"></tbody>
+        </table>
+
+        <div class="paginacao">
+            <button id="btn-pag-anterior">Anterior</button>
+            <span id="pag-info"></span>
+            <button id="btn-pag-proximo">Próximo</button>
+        </div>
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script src="js/acessos.js"></script>
+    <script>
+        exigirLogin();
+        configurarHeaderUsuario();
+        initTabelaAcessos({ mostrarFiltroFuncionario: false });
+    </script>
+</body>
+</html>

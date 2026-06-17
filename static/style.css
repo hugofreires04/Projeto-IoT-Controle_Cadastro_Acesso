@@ -253,3 +253,169 @@ form {
 .acoes a:hover {
     text-decoration: underline;
 }
+
+/* ── Login ─────────────────────────────────────────────────── */
+
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+}
+
+.login-box {
+    width: 320px;
+}
+
+.login-box h1 {
+    font-size: 18px;
+    margin-bottom: 20px;
+}
+
+/* ── Header com usuário logado ────────────────────────────── */
+
+.nav-usuario {
+    color: #a8c6e8;
+    font-size: 14px;
+}
+
+nav button.btn-link {
+    color: #a8c6e8;
+}
+
+nav button.btn-link:hover {
+    color: white;
+}
+
+/* ── Abas ──────────────────────────────────────────────────── */
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 10px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    color: #555;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn.ativo {
+    color: #1a1a2e;
+    border-bottom-color: #1a1a2e;
+    font-weight: bold;
+}
+
+.tab-conteudo {
+    display: none;
+}
+
+.tab-conteudo.ativo {
+    display: block;
+}
+
+/* ── Filtros da lista de acessos ──────────────────────────── */
+
+.filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.filtros select,
+.filtros input[type="date"] {
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.badges-filtro {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.badge-filtro {
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 12px;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.badge-filtro.ativo {
+    background: #1a1a2e;
+    color: white;
+    border-color: #1a1a2e;
+}
+
+.badge-liberado {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-negado {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.badge-desconhecido {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.totalizador {
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: #555;
+}
+
+/* ── Paginação ─────────────────────────────────────────────── */
+
+.paginacao {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+    font-size: 14px;
+}
+
+.paginacao button {
+    padding: 6px 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+}
+
+.paginacao button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* ── Áreas (checkboxes) e cartões ──────────────────────────── */
+
+.areas-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.cartao-linha {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+}

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin — Controle de Acesso RFID</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <span class="nav-title">Controle de Acesso RFID</span>
+        <span id="header-usuario-nome" class="nav-usuario"></span>
+        <button id="btn-sair" class="btn-link">Sair</button>
+    </nav>
+
+    <main>
+        <div class="tabs">
+            <button class="tab-btn ativo" data-tab="acessos">Acessos</button>
+            <button class="tab-btn" data-tab="funcionarios">Funcionários</button>
+            <button class="tab-btn" data-tab="cadastrar">Cadastrar</button>
+        </div>
+
+        <section id="tab-acessos" class="tab-conteudo ativo">
+            <div class="filtros">
+                <select id="filtro-funcionario">
+                    <option value="">Todos os funcionários</option>
+                </select>
+                <select id="filtro-area">
+                    <option value="">Todas as áreas</option>
+                </select>
+                <label>De <input type="date" id="filtro-data-inicio"></label>
+                <label>Até <input type="date" id="filtro-data-fim"></label>
+            </div>
+
+            <div class="badges-filtro">
+                <button class="badge-filtro ativo" data-resultado="">Todos</button>
+                <button class="badge-filtro" data-resultado="liberado">Liberado</button>
+                <button class="badge-filtro" data-resultado="negado_sem_permissao">Negado sem permissão</button>
+                <button class="badge-filtro" data-resultado="negado_inativo">Negado inativo</button>
+                <button class="badge-filtro" data-resultado="negado_desconhecido">Negado desconhecido</button>
+            </div>
+
+            <div class="acoes">
+                <button id="btn-aplicar-filtros">Aplicar filtros</button>
+                <button id="btn-exportar-csv">Exportar CSV</button>
+            </div>
+
+            <p id="totalizador" class="totalizador"></p>
+
+            <table>
+                <thead>
+                    <tr><th>Funcionário</th><th>Área</th><th>Resultado</th><th>Data/Hora</th></tr>
+                </thead>
+                <tbody id="tabela-acessos-corpo"></tbody>
+            </table>
+
+            <div class="paginacao">
+                <button id="btn-pag-anterior">Anterior</button>
+                <span id="pag-info"></span>
+                <button id="btn-pag-proximo">Próximo</button>
+            </div>
+        </section>
+
+        <section id="tab-funcionarios" class="tab-conteudo">
+            <table>
+                <thead>
+                    <tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Cartões</th></tr>
+                </thead>
+                <tbody id="tabela-funcionarios-corpo"></tbody>
+            </table>
+        </section>
+
+        <section id="tab-cadastrar" class="tab-conteudo">
+            <form id="form-cadastro-manual">
+                <div class="campo">
+                    <label for="cad-uid">UID do cartão</label>
+                    <input type="text" id="cad-uid" required>
+                </div>
+                <div class="campo">
+                    <label for="cad-nome">Nome completo</label>
+                    <input type="text" id="cad-nome" required>
+                </div>
+                <div class="campo">
+                    <label for="cad-cargo">Cargo</label>
+                    <input type="text" id="cad-cargo">
+                </div>
+                <div class="campo">
+                    <label for="cad-nivel">Nível de acesso ao sistema (opcional)</label>
+                    <select id="cad-nivel">
+                        <option value="">Sem acesso ao sistema</option>
+                        <option value="operador">Operador</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="campo">
+                    <label>Áreas permitidas</label>
+                    <div id="cad-areas" class="areas-checkboxes"></div>
+                </div>
+
+                <div id="cadastro-mensagem" class="flash" style="display:none;"></div>
+
+                <div class="acoes">
+                    <button type="submit">Cadastrar</button>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script src="js/acessos.js"></script>
+    <script src="js/admin.js"></script>
+    <script>
+        exigirLogin();
+        configurarHeaderUsuario();
+        initTabelaAcessos({ mostrarFiltroFuncionario: true });
+        initAbas();
+        initFuncionarios();
+        initCadastroManual();
+    </script>
+</body>
+</html>

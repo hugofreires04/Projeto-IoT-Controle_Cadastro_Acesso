@@ -1,9 +1,11 @@
-from .api_acesso import bp as api_acesso_bp
-from .api_funcionarios import bp as api_funcionarios_bp
-from .painel import bp as painel_bp
+from .acessos import bp as acessos_bp
+from .auth_routes import bp as auth_routes_bp
+from .cadastro import bp as cadastro_bp
+from .funcionarios import bp as funcionarios_bp
 
 
 def registrar_rotas(app):
-    app.register_blueprint(api_funcionarios_bp)
-    app.register_blueprint(api_acesso_bp)
-    app.register_blueprint(painel_bp)
+    app.register_blueprint(auth_routes_bp)
+    app.register_blueprint(funcionarios_bp)
+    app.register_blueprint(acessos_bp)
+    app.register_blueprint(cadastro_bp)
