@@ -1,4 +1,4 @@
-"""Decorators de autenticação manual via tabela sessoes (sem Flask-Login/JWT)."""
+"""Decorators de autenticação manual via tabela a3_sessoes (sem Flask-Login/JWT)."""
 
 from functools import wraps
 
@@ -18,7 +18,7 @@ def requer_login(rota):
 
         with get_cursor() as cur:
             cur.execute(
-                """SELECT id_usuario, nivel_acesso FROM sessoes
+                """SELECT id_usuario, nivel_acesso FROM a3_sessoes
                    WHERE token = %s AND expira_em > NOW()""",
                 (token,)
             )

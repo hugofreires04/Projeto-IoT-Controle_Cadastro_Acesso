@@ -22,7 +22,7 @@ def main():
 
     with get_cursor(commit=True) as cur:
         cur.execute(
-            """INSERT INTO usuarios (nome, email, senha_hash, nivel_acesso)
+            """INSERT INTO a3_usuarios (nome, email, senha_hash, nivel_acesso)
                VALUES (%s, %s, %s, 'admin')
                ON CONFLICT (email) DO UPDATE SET senha_hash = EXCLUDED.senha_hash""",
             (NOME_ADMIN, EMAIL_ADMIN, senha_hash)

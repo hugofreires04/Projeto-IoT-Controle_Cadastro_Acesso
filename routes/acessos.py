@@ -3,7 +3,7 @@
 Os endpoints GET /api/acesso/<uid> e POST /api/acesso/log são consumidos pelo
 fluxo Node-RED já existente (nodered/flow_acesso.json) — o contrato JSON é
 mantido igual ao da Task 1 para não exigir mudanças no Node-RED/ESP32, mas
-agora gravam em registros_acesso (resultado) em vez de logs_acesso (autorizado).
+agora gravam em a3_registros_acesso (resultado) em vez de a3_logs_acesso (autorizado).
 """
 
 import csv
@@ -31,8 +31,8 @@ def _classificar_uid(uid):
         cur.execute(
             """SELECT c.ativo AS cartao_ativo, f.id AS id_funcionario, f.nome, f.cargo,
                       f.ativo AS funcionario_ativo
-               FROM cartoes_rfid c
-               LEFT JOIN funcionarios f ON f.id = c.id_funcionario
+               FROM a3_cartoes_rfid c
+               LEFT JOIN a3_funcionarios f ON f.id = c.id_funcionario
                WHERE c.uid = %s""",
             (uid,)
         )
@@ -70,7 +70,7 @@ def registrar_acesso():
 
     with get_cursor(commit=True) as cur:
         cur.execute(
-            """INSERT INTO registros_acesso (uid, id_funcionario, resultado)
+            """INSERT INTO a3_registros_acesso (uid, id_funcionario, resultado)
                VALUES (%s, %s, %s)
                RETURNING id, data_hora""",
             (uid, id_funcionario, resultado)
@@ -87,7 +87,7 @@ def _montar_filtros():
 
     if request.usuario["nivel_acesso"] == "operador":
         with get_cursor() as cur:
-            cur.execute("SELECT id_funcionario FROM usuarios WHERE id = %s", (request.usuario["id_usuario"],))
+            cur.execute("SELECT id_funcionario FROM a3_usuarios WHERE id = %s", (request.usuario["id_usuario"],))
             linha = cur.fetchone()
         condicoes.append("r.id_funcionario = %s")
         params.append(linha["id_funcionario"] if linha else None)
@@ -122,9 +122,9 @@ def _montar_filtros():
 
 _SELECT_BASE = """
     SELECT r.id, r.uid, f.nome AS funcionario, f.cargo, a.nome AS area, r.resultado, r.data_hora
-    FROM registros_acesso r
-    LEFT JOIN funcionarios f ON f.id = r.id_funcionario
-    LEFT JOIN areas a ON a.id = r.id_area
+    FROM a3_registros_acesso r
+    LEFT JOIN a3_funcionarios f ON f.id = r.id_funcionario
+    LEFT JOIN a3_areas a ON a.id = r.id_area
 """
 
 
@@ -138,11 +138,11 @@ def listar_acessos():
     offset = (page - 1) * limit
 
     with get_cursor() as cur:
-        cur.execute(f"SELECT COUNT(*) AS total FROM registros_acesso r WHERE {where}", params)
+        cur.execute(f"SELECT COUNT(*) AS total FROM a3_registros_acesso r WHERE {where}", params)
         total = cur.fetchone()["total"]
 
         cur.execute(
-            f"""SELECT r.resultado, COUNT(*) AS total FROM registros_acesso r
+            f"""SELECT r.resultado, COUNT(*) AS total FROM a3_registros_acesso r
                 WHERE {where} GROUP BY r.resultado""",
             params
         )

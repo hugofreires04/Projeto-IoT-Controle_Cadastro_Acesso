@@ -28,19 +28,19 @@ def cadastrar_funcionario():
         return jsonify({"erro": "uid e nome são obrigatórios"}), 400
 
     with get_cursor(commit=True) as cur:
-        cur.execute("SELECT 1 FROM cartoes_rfid WHERE uid = %s", (uid,))
+        cur.execute("SELECT 1 FROM a3_cartoes_rfid WHERE uid = %s", (uid,))
         if cur.fetchone() is not None:
             return jsonify({"erro": "UID já cadastrado"}), 409
 
         cur.execute(
-            """INSERT INTO funcionarios (nome, cargo, ativo)
+            """INSERT INTO a3_funcionarios (nome, cargo, ativo)
                VALUES (%s, %s, true) RETURNING id""",
             (nome, cargo)
         )
         id_funcionario = cur.fetchone()["id"]
 
         cur.execute(
-            """INSERT INTO cartoes_rfid (uid, id_funcionario, ativo)
+            """INSERT INTO a3_cartoes_rfid (uid, id_funcionario, ativo)
                VALUES (%s, %s, true) RETURNING id""",
             (uid, id_funcionario)
         )
@@ -48,7 +48,7 @@ def cadastrar_funcionario():
 
         for id_area in areas:
             cur.execute(
-                "INSERT INTO permissoes (id_cartao, id_area) VALUES (%s, %s)",
+                "INSERT INTO a3_permissoes (id_cartao, id_area) VALUES (%s, %s)",
                 (id_cartao, id_area)
             )
 
@@ -58,12 +58,12 @@ def cadastrar_funcionario():
             senha_gerada = uid.replace(" ", "")[:8]
             senha_hash = bcrypt.hashpw(senha_gerada.encode(), bcrypt.gensalt()).decode()
             cur.execute(
-                """INSERT INTO usuarios (nome, email, senha_hash, nivel_acesso, id_funcionario)
+                """INSERT INTO a3_usuarios (nome, email, senha_hash, nivel_acesso, id_funcionario)
                    VALUES (%s, %s, %s, %s, %s)""",
                 (nome, email, senha_hash, nivel_acesso, id_funcionario)
             )
 
-        cur.execute("SELECT * FROM funcionarios WHERE id = %s", (id_funcionario,))
+        cur.execute("SELECT * FROM a3_funcionarios WHERE id = %s", (id_funcionario,))
         funcionario = dict(cur.fetchone())
 
     funcionario["uid"] = uid
@@ -79,20 +79,20 @@ def cadastrar_funcionario():
 @requer_admin
 def listar_funcionarios():
     with get_cursor() as cur:
-        cur.execute("SELECT * FROM funcionarios ORDER BY nome ASC")
+        cur.execute("SELECT * FROM a3_funcionarios ORDER BY nome ASC")
         funcionarios = [dict(f) for f in cur.fetchall()]
 
         for funcionario in funcionarios:
             cur.execute(
-                "SELECT id, uid, ativo FROM cartoes_rfid WHERE id_funcionario = %s",
+                "SELECT id, uid, ativo FROM a3_cartoes_rfid WHERE id_funcionario = %s",
                 (funcionario["id"],)
             )
             cartoes = [dict(c) for c in cur.fetchall()]
 
             for cartao in cartoes:
                 cur.execute(
-                    """SELECT a.id, a.nome FROM permissoes p
-                       JOIN areas a ON a.id = p.id_area
+                    """SELECT a.id, a.nome FROM a3_permissoes p
+                       JOIN a3_areas a ON a.id = p.id_area
                        WHERE p.id_cartao = %s""",
                     (cartao["id"],)
                 )
@@ -112,7 +112,7 @@ def alterar_status_cartao(id_funcionario, id_cartao):
 
     with get_cursor(commit=True) as cur:
         cur.execute(
-            "UPDATE cartoes_rfid SET ativo = %s WHERE id = %s AND id_funcionario = %s",
+            "UPDATE a3_cartoes_rfid SET ativo = %s WHERE id = %s AND id_funcionario = %s",
             (ativo, id_cartao, id_funcionario)
         )
         if cur.rowcount == 0:
@@ -125,6 +125,6 @@ def alterar_status_cartao(id_funcionario, id_cartao):
 @requer_login
 def listar_areas():
     with get_cursor() as cur:
-        cur.execute("SELECT * FROM areas ORDER BY nome ASC")
+        cur.execute("SELECT * FROM a3_areas ORDER BY nome ASC")
         areas = cur.fetchall()
     return jsonify([dict(a) for a in areas])

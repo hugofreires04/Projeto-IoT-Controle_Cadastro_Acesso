@@ -18,14 +18,14 @@ def login():
     senha = dados.get("senha", "")
 
     with get_cursor(commit=True) as cur:
-        cur.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
+        cur.execute("SELECT * FROM a3_usuarios WHERE email = %s", (email,))
         usuario = cur.fetchone()
 
         if usuario is None or not bcrypt.checkpw(senha.encode(), usuario["senha_hash"].encode()):
             return jsonify({"erro": "Credenciais inválidas"}), 401
 
         cur.execute(
-            f"""INSERT INTO sessoes (id_usuario, nivel_acesso, expira_em)
+            f"""INSERT INTO a3_sessoes (id_usuario, nivel_acesso, expira_em)
                VALUES (%s, %s, NOW() + INTERVAL '{DURACAO_SESSAO_HORAS} hours')
                RETURNING token""",
             (usuario["id"], usuario["nivel_acesso"])
@@ -43,7 +43,7 @@ def login():
 @requer_login
 def logout():
     with get_cursor(commit=True) as cur:
-        cur.execute("DELETE FROM sessoes WHERE token = %s", (request.token,))
+        cur.execute("DELETE FROM a3_sessoes WHERE token = %s", (request.token,))
     return "", 200
 
 
@@ -52,7 +52,7 @@ def logout():
 def me():
     with get_cursor() as cur:
         cur.execute(
-            "SELECT id, nome, email, nivel_acesso, id_funcionario FROM usuarios WHERE id = %s",
+            "SELECT id, nome, email, nivel_acesso, id_funcionario FROM a3_usuarios WHERE id = %s",
             (request.usuario["id_usuario"],)
         )
         usuario = cur.fetchone()

@@ -34,7 +34,7 @@ static/
 ├── js/admin.js                → abas do painel admin, listagem de funcionários, cadastro manual
 └── style.css
 database/schema.sql            → schema original (TimescaleDB)
-migrations/002_login.sql       → evolui o schema: cartoes_rfid, areas, permissoes, usuarios, sessoes, registros_acesso
+migrations/002_login.sql       → evolui o schema: a3_cartoes_rfid, a3_areas, a3_permissoes, a3_usuarios, a3_sessoes, a3_registros_acesso
 nodered/flow_acesso.json        → fluxo Node-RED do controle de acesso da catraca
 ```
 
@@ -138,7 +138,7 @@ docker compose down
 - **admin**: acessa `/static/admin.html` — abas de Acessos (todos), Funcionários (com ativar/desativar cartão) e Cadastrar (formulário manual).
 - **operador**: acessa `/static/operador.html` — vê apenas o próprio histórico de acessos (o backend força o filtro pelo `id_funcionario` vinculado ao usuário).
 
-O token de sessão é salvo no `localStorage` e enviado em todo fetch como `Authorization: Bearer <token>`. Sessões expiram 8h após o login (tabela `sessoes`).
+O token de sessão é salvo no `localStorage` e enviado em todo fetch como `Authorization: Bearer <token>`. Sessões expiram 8h após o login (tabela `a3_sessoes`).
 
 ## Cadastro de funcionário
 
