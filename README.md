@@ -2,36 +2,33 @@
 
 Projeto da disciplina **ENG4051 — Projeto Internet das Coisas (PUC-Rio)**.
 
-Controle de cadastro e acesso de funcionários via cartão RFID com catraca física, login com permissões (admin/operador) e cadastro de funcionário via QR Code gerado a partir da leitura do cartão.
+Controle de cadastro e acesso de funcionários via cartão RFID com catraca física, com login e permissões (admin/operador) no painel web.
 
 ## Arquitetura
 
 ```
-ESP32 (RFID) → MQTT Broker (TLS) → Node-RED → Flask (REST API) → PostgreSQL/TimescaleDB
-                     │                                  ↕
-                     │                         Painel Web (login + permissões)
-                     └── rfid/cadastro/* ──────────────→ Flask (paho-mqtt direto)
+ESP32 (RFID) → MQTT Broker → Node-RED → Flask (REST API) → PostgreSQL/TimescaleDB
+                                                  ↕
+                                         Painel Web (login + permissões)
 ```
 
-- O fluxo de **acesso da catraca** (`catraca/acesso` → `catraca/resposta`) continua mediado pelo Node-RED, chamando `GET /api/acesso/<uid>` e `POST /api/acesso/log` no Flask.
-- O fluxo de **cadastro de novo cartão** (`rfid/cadastro/*`) é tratado pelo próprio Flask, que se conecta direto ao broker MQTT (TLS) via `paho-mqtt` em uma thread de background.
+- O fluxo de **acesso da catraca** (`catraca/acesso` → `catraca/resposta`) é mediado pelo Node-RED, chamando `GET /api/acesso/<uid>` e `POST /api/acesso/log` no Flask.
+- O **cadastro de funcionário** é feito manualmente pelo admin no painel: o cartão já é entregue fisicamente à pessoa, e o admin digita o UID (impresso ou anotado) na aba "Cadastrar" do `admin.html`. O Flask não se conecta diretamente ao broker MQTT — só o Node-RED fala com o broker.
 
 ## Estrutura do projeto
 
 ```
-app.py                       → cria a app Flask, registra rotas e inicia a thread MQTT
+app.py                       → cria a app Flask e registra as rotas
 config.py                    → configurações via variáveis de ambiente
 db.py                        → conexão com o banco e normalização do UID
 auth.py                      → decorators requer_login / requer_admin (sessões manuais)
-mqtt_client.py                → cliente paho-mqtt (TLS) do fluxo de cadastro via QR Code
 setup_admin.py                → gera o hash bcrypt e cria/atualiza o usuário admin inicial
 routes/
 ├── auth_routes.py           → /api/login, /api/logout, /api/me
 ├── funcionarios.py          → /api/funcionarios, /api/funcionarios/<id>/cartoes/<id>, /api/areas
-├── acessos.py                → /api/acessos, /api/acessos/exportar, /api/acesso/<uid>, /api/acesso/log
-└── cadastro.py                → /cadastro (serve static/cadastro.html)
+└── acessos.py                → /api/acessos, /api/acessos/exportar, /api/acesso/<uid>, /api/acesso/log
 static/
-├── login.html, admin.html, operador.html, cadastro.html
+├── login.html, admin.html, operador.html
 ├── js/auth.js                 → autenticação (token no localStorage)
 ├── js/acessos.js              → componente de tabela de acessos (filtros/paginação/CSV)
 ├── js/admin.js                → abas do painel admin, listagem de funcionários, cadastro manual
@@ -46,7 +43,6 @@ nodered/flow_acesso.json        → fluxo Node-RED do controle de acesso da catr
 - Python 3.10+
 - PostgreSQL 14+ com extensão **TimescaleDB**
 - Node-RED 3+ (fluxo da catraca)
-- Broker MQTT com TLS (ex.: `mqtt.janks.dev.br:8883`)
 
 ## Instalação passo a passo
 
@@ -72,19 +68,12 @@ Preencha:
 ```env
 DATABASE_URL=postgresql://SEU_USUARIO:SUA_SENHA@localhost:5432/acesso_rfid
 SECRET_KEY=uma-chave-secreta-qualquer
-
 MQTT_BROKER=mqtt.janks.dev.br
 MQTT_PORT=8883
-MQTT_USE_TLS=true
-MQTT_USER=
-MQTT_PASSWORD=
 
 FLASK_HOST=0.0.0.0
 FLASK_PORT=5000
 FLASK_DEBUG=true
-
-# Deixe em branco para descobrir automaticamente via socket.gethostbyname()
-LOCAL_IP=
 ```
 
 ### 3. Instalar dependências Python
@@ -124,14 +113,9 @@ O painel estará disponível em `http://localhost:5000` (redireciona para `/stat
 
 O token de sessão é salvo no `localStorage` e enviado em todo fetch como `Authorization: Bearer <token>`. Sessões expiram 8h após o login (tabela `sessoes`).
 
-## Fluxo de cadastro via cartão RFID + QR Code
+## Cadastro de funcionário
 
-1. O leitor RFID publica em `rfid/cadastro/novo`: `{"uid": "XXXX", "id_leitor": "leitor_01"}`
-2. O Flask verifica se o UID já existe em `cartoes_rfid`:
-   - Se sim → publica em `rfid/cadastro/erro`: `{"erro": "UID já cadastrado", "uid": "XXXX"}`
-   - Se não → gera um QR Code apontando para `http://{LOCAL_IP}:5000/cadastro?uid=XXXX` e publica em `rfid/cadastro/qrcode`: `{"uid": "XXXX", "qrcode_base64": "..."}`
-3. Um admin já logado escaneia o QR Code, preenche nome/cargo/áreas em `/cadastro` e submete `POST /api/funcionarios`
-4. Ao concluir o cadastro, o Flask publica em `rfid/cadastro/concluido`: `{"uid": "XXXX", "nome": "..."}`
+Só o admin cadastra (aba "Cadastrar" em `admin.html`). O fluxo é manual: o admin já tem o cartão físico em mãos antes de entregá-lo à pessoa, então digita o UID diretamente no formulário (junto com nome, cargo, nível de acesso opcional e áreas permitidas) e envia `POST /api/funcionarios`. Não há leitura automática de UID nem geração de QR Code — isso foi removido por não ser mais necessário no fluxo atual de cadastro.
 
 ## Endpoints da API REST
 
@@ -149,16 +133,10 @@ O token de sessão é salvo no `localStorage` e enviado em todo fetch como `Auth
 | GET | `/api/acesso/<uid>` | — | Consultado pelo Node-RED a cada leitura na catraca |
 | POST | `/api/acesso/log` | — | Registra o resultado de uma leitura (chamado pelo Node-RED) |
 
-## Exemplos de payload MQTT
+## Exemplo de payload MQTT (catraca)
 
-Catraca (fluxo existente, mediado pelo Node-RED), publique em `catraca/acesso`:
+Publique no tópico `catraca/acesso` para simular uma leitura na catraca (fluxo mediado pelo Node-RED):
 
 ```json
 { "uid": "E7 45 D6 19", "tipo": "entrada" }
-```
-
-Cadastro de novo cartão (fluxo novo, Flask consome direto), publique em `rfid/cadastro/novo`:
-
-```json
-{ "uid": "AA BB CC DD", "id_leitor": "leitor_01" }
 ```

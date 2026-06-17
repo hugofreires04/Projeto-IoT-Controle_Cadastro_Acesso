@@ -2,5 +2,3 @@ flask
 psycopg2-binary
 python-dotenv
 bcrypt
-paho-mqtt
-qrcode[pil]

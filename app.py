@@ -1,7 +1,6 @@
 from flask import Flask, redirect
 
 import config
-import mqtt_client
 from routes import registrar_rotas
 
 app = Flask(__name__)
@@ -26,5 +25,4 @@ def raiz():
 # ── Ponto de entrada ──────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    mqtt_client.start()
     app.run(debug=config.FLASK_DEBUG, host=config.FLASK_HOST, port=config.FLASK_PORT, use_reloader=False)

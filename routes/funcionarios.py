@@ -1,11 +1,10 @@
-"""Funcionários — cadastro (manual ou via RFID) e áreas."""
+"""Funcionários — cadastro manual (pelo admin) e áreas."""
 
 import bcrypt
 from flask import Blueprint, jsonify, request
 
 from auth import requer_admin, requer_login
 from db import get_cursor, normalizar_uid
-from mqtt_client import TOPICO_CADASTRO_CONCLUIDO, publicar
 
 bp = Blueprint("funcionarios", __name__, url_prefix="/api")
 
@@ -66,8 +65,6 @@ def cadastrar_funcionario():
 
         cur.execute("SELECT * FROM funcionarios WHERE id = %s", (id_funcionario,))
         funcionario = dict(cur.fetchone())
-
-    publicar(TOPICO_CADASTRO_CONCLUIDO, {"uid": uid, "nome": nome})
 
     funcionario["uid"] = uid
     funcionario["areas"] = areas
