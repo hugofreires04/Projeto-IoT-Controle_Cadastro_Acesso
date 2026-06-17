@@ -66,14 +66,17 @@ cp .env.example .env
 Preencha:
 
 ```env
-DATABASE_URL=postgresql://SEU_USUARIO:SUA_SENHA@localhost:5432/acesso_rfid
+DATABASE_URL=postgresql://SEU_USUARIO:SUA_SENHA@SEU_HOST:5432/SEU_BANCO
 SECRET_KEY=uma-chave-secreta-qualquer
-MQTT_BROKER=mqtt.janks.dev.br
-MQTT_PORT=8883
 
 FLASK_HOST=0.0.0.0
 FLASK_PORT=5000
 FLASK_DEBUG=true
+
+MQTT_BROKER=SEU_BROKER
+MQTT_PORT=8883
+MQTT_USER=SEU_USUARIO_MQTT
+MQTT_PASSWORD=SUA_SENHA_MQTT
 ```
 
 ### 3. Instalar dependências Python
@@ -98,6 +101,30 @@ python app.py
 ```
 
 O painel estará disponível em `http://localhost:5000` (redireciona para `/static/login.html`).
+
+#### Alternativa: rodar com Docker
+
+Com o `.env` já preenchido (passo 2), basta:
+
+```bash
+docker compose up --build
+```
+
+Isso constrói a imagem (Python 3.12 + dependências do `requirements.txt`) e sobe o container do Flask lendo as variáveis do `.env`. O painel fica disponível em `http://localhost:5000`. Para rodar em background, use `docker compose up --build -d` e acompanhe os logs com `docker compose logs -f`.
+
+Para criar o usuário admin inicial dentro do container:
+
+```bash
+docker compose exec app python setup_admin.py
+```
+
+Para parar:
+
+```bash
+docker compose down
+```
+
+> O PostgreSQL/TimescaleDB e o broker MQTT são serviços remotos (ver `DATABASE_URL`/`MQTT_*` no `.env`) — o `docker-compose.yml` sobe apenas o container da aplicação Flask, não bancos ou brokers locais.
 
 ### 6. Importar o fluxo no Node-RED
 
