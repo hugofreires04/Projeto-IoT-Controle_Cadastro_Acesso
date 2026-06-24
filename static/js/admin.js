@@ -148,50 +148,55 @@ async function initCadastroManual() {
 
         if (resp.ok) {
             document.getElementById("form-cadastro-manual").reset();
-            document.getElementById("uid-pendente-banner").style.display = "none";
+            _renderUidsPendentes();
         }
     });
 }
 
-// ── UID pendente de cadastro (lido pela catraca em modo admin) ──────────────
+// ── UIDs pendentes de cadastro (lidos pela catraca em modo admin) ───────────
 // Quando o admin usa o próprio cartão na catraca, o ESP entra em modo cadastro
-// e publica o próximo UID lido em a3/cadastros (ver nodered/flow_acesso.json),
-// que o Flask guarda em a3_uids_pendentes até aparecer aqui.
+// e publica o(s) próximo(s) UID(s) lido(s) em a3/cadastros (ver nodered/flow_acesso.json),
+// que o Flask guarda em a3_uids_pendentes (TTL de alguns minutos) até aparecerem aqui,
+// empilhados do mais recente pro mais antigo.
 
-async function _verificarUidPendente() {
+async function _renderUidsPendentes() {
     if (!document.getElementById("tab-cadastrar").classList.contains("ativo")) return;
 
     const resposta = await apiFetch("/api/cadastros/uid-pendente");
-    const pendente = await resposta.json();
+    const pendentes = await resposta.json();
 
-    const banner = document.getElementById("uid-pendente-banner");
-    if (!pendente) {
-        banner.style.display = "none";
-        return;
-    }
+    const lista = document.getElementById("uid-pendentes-lista");
+    lista.innerHTML = pendentes.map((p) => `
+        <div class="flash flash-info uid-pendente-banner">
+            <span class="uid-pendente-texto">
+                Cartão novo lido na catraca: <code>${p.uid}</code>
+                (${new Date(p.recebido_em).toLocaleTimeString("pt-BR")})
+            </span>
+            <span class="uid-pendente-acoes">
+                <button type="button" class="btn-link usar-uid-pendente" data-uid="${p.uid}">Usar este UID</button>
+                <button type="button" class="btn-link descartar-uid-pendente" data-id="${p.id}">Descartar</button>
+            </span>
+        </div>
+    `).join("");
 
-    banner.style.display = "flex";
-    banner.querySelector(".uid-pendente-texto").textContent =
-        `Cartão novo lido na catraca: ${pendente.uid} (${new Date(pendente.recebido_em).toLocaleTimeString("pt-BR")})`;
-    banner.querySelector(".usar-uid-pendente").dataset.uid = pendente.uid;
-    banner.querySelector(".usar-uid-pendente").dataset.id = pendente.id;
-    banner.querySelector(".descartar-uid-pendente").dataset.id = pendente.id;
+    lista.querySelectorAll(".usar-uid-pendente").forEach((botao) => {
+        botao.addEventListener("click", () => {
+            document.getElementById("cad-uid").value = botao.dataset.uid;
+        });
+    });
+
+    lista.querySelectorAll(".descartar-uid-pendente").forEach((botao) => {
+        botao.addEventListener("click", async () => {
+            await apiFetch(`/api/cadastros/uid-pendente/${botao.dataset.id}`, { method: "DELETE" });
+            _renderUidsPendentes();
+        });
+    });
 }
 
-function initUidPendente() {
-    _verificarUidPendente();
-    setInterval(_verificarUidPendente, 5000);
-    document.querySelector('.tab-btn[data-tab="cadastrar"]').addEventListener("click", _verificarUidPendente);
-
-    document.querySelector("#uid-pendente-banner .usar-uid-pendente").addEventListener("click", (evento) => {
-        document.getElementById("cad-uid").value = evento.target.dataset.uid;
-        document.getElementById("uid-pendente-banner").style.display = "none";
-    });
-
-    document.querySelector("#uid-pendente-banner .descartar-uid-pendente").addEventListener("click", async (evento) => {
-        await apiFetch(`/api/cadastros/uid-pendente/${evento.target.dataset.id}`, { method: "DELETE" });
-        document.getElementById("uid-pendente-banner").style.display = "none";
-    });
+function initUidsPendentes() {
+    _renderUidsPendentes();
+    setInterval(_renderUidsPendentes, 5000);
+    document.querySelector('.tab-btn[data-tab="cadastrar"]').addEventListener("click", _renderUidsPendentes);
 }
 
 // ── Lugares (áreas) ─────────────────────────────────────────────────────────

@@ -66,12 +66,20 @@ nav a:hover {
     border: 1px solid #bee5eb;
 }
 
+.uid-pendentes-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 480px;
+    margin-bottom: 20px;
+}
+
 .uid-pendente-banner {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    max-width: 480px;
+    margin-bottom: 0;
 }
 
 .uid-pendente-acoes {

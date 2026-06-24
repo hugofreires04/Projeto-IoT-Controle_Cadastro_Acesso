@@ -186,6 +186,12 @@ def remover_usuario(id_usuario):
 
 # ── UIDs pendentes de cadastro (lidos pela catraca em modo admin) ─────────
 
+# TTL curto: se o admin entrar em modo cadastro e não completar o cadastro
+# (ou não descartar) logo, o UID lido não deve continuar aparecendo pro
+# próximo admin que abrir a aba Cadastrar dias depois.
+TTL_MINUTOS_UID_PENDENTE = 5
+
+
 @bp.route("/cadastros/uid-pendente", methods=["POST"])
 def receber_uid_pendente():
     """Chamado pelo Node-RED ao receber uma leitura no tópico MQTT a3/cadastros.
@@ -200,6 +206,9 @@ def receber_uid_pendente():
 
     with get_cursor(commit=True) as cur:
         cur.execute(
+            f"DELETE FROM a3_uids_pendentes WHERE recebido_em < NOW() - INTERVAL '{TTL_MINUTOS_UID_PENDENTE} minutes'"
+        )
+        cur.execute(
             "INSERT INTO a3_uids_pendentes (uid) VALUES (%s) RETURNING id, uid, recebido_em",
             (uid,)
         )
@@ -212,18 +221,23 @@ def receber_uid_pendente():
 @bp.route("/cadastros/uid-pendente", methods=["GET"])
 @requer_login
 @requer_admin
-def consultar_uid_pendente():
-    """Retorna o UID mais recente ainda não usado/descartado (ou null), para a aba Cadastrar."""
+def listar_uids_pendentes():
+    """Lista todos os UIDs ainda não usados/descartados/expirados, do mais recente pro mais antigo."""
     with get_cursor() as cur:
-        cur.execute("SELECT id, uid, recebido_em FROM a3_uids_pendentes ORDER BY recebido_em DESC LIMIT 1")
-        pendente = cur.fetchone()
+        cur.execute(
+            f"""SELECT id, uid, recebido_em FROM a3_uids_pendentes
+                WHERE recebido_em >= NOW() - INTERVAL '{TTL_MINUTOS_UID_PENDENTE} minutes'
+                ORDER BY recebido_em DESC"""
+        )
+        pendentes = cur.fetchall()
 
-    if pendente is None:
-        return jsonify(None)
+    resultado = []
+    for p in pendentes:
+        p = dict(p)
+        p["recebido_em"] = p["recebido_em"].isoformat()
+        resultado.append(p)
 
-    pendente = dict(pendente)
-    pendente["recebido_em"] = pendente["recebido_em"].isoformat()
-    return jsonify(pendente)
+    return jsonify(resultado)
 
 
 @bp.route("/cadastros/uid-pendente/<int:id_pendente>", methods=["DELETE"])

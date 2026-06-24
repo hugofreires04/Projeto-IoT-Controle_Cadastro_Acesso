@@ -83,13 +83,7 @@
         </section>
 
         <section id="tab-cadastrar" class="tab-conteudo">
-            <div id="uid-pendente-banner" class="flash flash-info uid-pendente-banner" style="display:none;">
-                <span class="uid-pendente-texto"></span>
-                <span class="uid-pendente-acoes">
-                    <button type="button" class="btn-link usar-uid-pendente">Usar este UID</button>
-                    <button type="button" class="btn-link descartar-uid-pendente">Descartar</button>
-                </span>
-            </div>
+            <div id="uid-pendentes-lista" class="uid-pendentes-lista"></div>
 
             <form id="form-cadastro-manual">
                 <div class="campo">
@@ -207,7 +201,7 @@
         initAbas();
         initFuncionarios();
         initCadastroManual();
-        initUidPendente();
+        initUidsPendentes();
         initAreas();
         initUsuarios();
     </script>

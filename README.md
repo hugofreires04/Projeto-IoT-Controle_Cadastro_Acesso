@@ -149,7 +149,7 @@ Só o admin cadastra (aba "Cadastrar" em `admin.html`). O fluxo é manual: o adm
 
 O UID pode vir de duas formas:
 1. **Digitado à mão** — o cartão já foi entregue fisicamente à pessoa e o admin digita o UID impresso/anotado.
-2. **Lido na catraca em modo cadastro** — o admin passa o próprio cartão na catraca (`GET /api/acesso/<uid>` retorna `isAdmin=true`), o firmware entra em modo cadastro e a leitura seguinte (do cartão da nova pessoa) é publicada em `a3/cadastros`. O Node-RED repassa para `POST /api/cadastros/uid-pendente`, que fica disponível em `GET /api/cadastros/uid-pendente` e aparece como banner "Cartão novo lido na catraca" na aba Cadastrar, com os botões **Usar este UID** (preenche o campo) e **Descartar**. O registro pendente é apagado automaticamente quando o cadastro é concluído com esse UID.
+2. **Lido na catraca em modo cadastro** — o admin passa o próprio cartão na catraca (`GET /api/acesso/<uid>` retorna `isAdmin=true`), o firmware entra em modo cadastro e a leitura seguinte (do cartão da nova pessoa) é publicada em `a3/cadastros`. O Node-RED repassa para `POST /api/cadastros/uid-pendente`, que fica disponível em `GET /api/cadastros/uid-pendente` e aparece como banner "Cartão novo lido na catraca" na aba Cadastrar, com os botões **Usar este UID** (preenche o campo) e **Descartar**. O registro pendente é apagado automaticamente quando o cadastro é concluído com esse UID, e expira sozinho após **5 minutos** (`TTL_MINUTOS_UID_PENDENTE` em `routes/cadastros.py`) para não aparecer "fantasma" pro próximo admin caso ninguém complete ou descarte o cadastro.
 
 ## Endpoints da API REST
 
