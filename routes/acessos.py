@@ -10,7 +10,7 @@ import csv
 import io
 from datetime import date
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, current_app, jsonify, request
 
 from auth import requer_login
 from db import get_cursor, normalizar_uid
@@ -26,11 +26,21 @@ RESULTADOS_VALIDOS = (
 
 
 def _classificar_uid(uid):
-    """Verifica o estado atual de um cartão e retorna (resultado, id_funcionario, nome, cargo)."""
+    """Verifica o estado atual de um cartão e retorna (resultado, id_funcionario, nome, cargo, is_admin).
+
+    is_admin indica se o funcionário dono do cartão tem uma conta em a3_usuarios
+    com nivel_acesso='admin' — usado pelo ESP para entrar em modo de cadastro
+    (próxima leitura de cartão vai para o tópico a3/cadastros). Só é considerado
+    quando o acesso é liberado; em qualquer negação vem sempre False.
+    """
     with get_cursor() as cur:
         cur.execute(
             """SELECT c.ativo AS cartao_ativo, f.id AS id_funcionario, f.nome, f.cargo,
-                      f.ativo AS funcionario_ativo
+                      f.ativo AS funcionario_ativo,
+                      EXISTS (
+                          SELECT 1 FROM a3_usuarios u
+                          WHERE u.id_funcionario = f.id AND u.nivel_acesso = 'admin'
+                      ) AS is_admin
                FROM a3_cartoes_rfid c
                LEFT JOIN a3_funcionarios f ON f.id = c.id_funcionario
                WHERE c.uid = %s""",
@@ -39,43 +49,59 @@ def _classificar_uid(uid):
         cartao = cur.fetchone()
 
     if cartao is None:
-        return "negado_desconhecido", None, None, None
+        return "negado_desconhecido", None, None, None, False
     if not cartao["cartao_ativo"] or not cartao["funcionario_ativo"]:
-        return "negado_inativo", cartao["id_funcionario"], cartao["nome"], cartao["cargo"]
-    return "liberado", cartao["id_funcionario"], cartao["nome"], cartao["cargo"]
+        return "negado_inativo", cartao["id_funcionario"], cartao["nome"], cartao["cargo"], False
+    return "liberado", cartao["id_funcionario"], cartao["nome"], cartao["cargo"], bool(cartao["is_admin"])
 
 
 @bp.route("/acesso/<uid>", methods=["GET"])
 def verificar_acesso(uid):
-    """Consultado pelo Node-RED a cada leitura de cartão na catraca."""
-    uid = normalizar_uid(uid)
-    resultado, _, nome, cargo = _classificar_uid(uid)
-    autorizado = resultado == "liberado"
+    """Consultado pelo Node-RED a cada leitura de cartão na catraca.
+
+    Sempre responde JSON, mesmo em erro: o nó HTTP do Node-RED espera o corpo
+    como objeto (ret=obj) e quebra com "JSON parse error" se receber a página
+    HTML de erro/debug do Flask.
+    """
+    try:
+        uid = normalizar_uid(uid)
+        resultado, _, nome, cargo, is_admin = _classificar_uid(uid)
+        autorizado = resultado == "liberado"
+    except Exception:
+        current_app.logger.exception("Falha ao verificar acesso para uid=%r", uid)
+        return jsonify({"nome": "Desconhecido", "autorizado": False, "isAdmin": False, "cargo": None}), 500
 
     return jsonify({
-        "autorizado": autorizado,
         "nome": nome or "Desconhecido",
+        "autorizado": autorizado,
+        "isAdmin": is_admin,
         "cargo": cargo,
-        "motivo": "" if autorizado else resultado,
     })
 
 
 @bp.route("/acesso/log", methods=["POST"])
 def registrar_acesso():
-    """Registra o resultado de uma leitura, chamado pelo Node-RED após a verificação."""
+    """Registra o resultado de uma leitura, chamado pelo Node-RED após a verificação.
+
+    Sempre responde JSON, mesmo em erro, pelo mesmo motivo de verificar_acesso.
+    """
     dados = request.get_json(force=True) or {}
     uid = normalizar_uid(dados.get("uid_cartao", ""))
 
-    resultado, id_funcionario, _, _ = _classificar_uid(uid)
+    try:
+        resultado, id_funcionario, _, _, _ = _classificar_uid(uid)
 
-    with get_cursor(commit=True) as cur:
-        cur.execute(
-            """INSERT INTO a3_registros_acesso (uid, id_funcionario, resultado)
-               VALUES (%s, %s, %s)
-               RETURNING id, data_hora""",
-            (uid, id_funcionario, resultado)
-        )
-        registro = cur.fetchone()
+        with get_cursor(commit=True) as cur:
+            cur.execute(
+                """INSERT INTO a3_registros_acesso (uid, id_funcionario, resultado)
+                   VALUES (%s, %s, %s)
+                   RETURNING id, data_hora""",
+                (uid, id_funcionario, resultado)
+            )
+            registro = cur.fetchone()
+    except Exception:
+        current_app.logger.exception("Falha ao registrar acesso para uid=%r", uid)
+        return jsonify({"sucesso": False, "motivo": "erro_interno"}), 500
 
     return jsonify({"sucesso": True, "id": registro["id"], "data_hora": registro["data_hora"].isoformat()}), 201
 

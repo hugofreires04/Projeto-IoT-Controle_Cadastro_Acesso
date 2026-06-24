@@ -18,6 +18,8 @@
             <button class="tab-btn ativo" data-tab="acessos">Acessos</button>
             <button class="tab-btn" data-tab="funcionarios">Funcionários</button>
             <button class="tab-btn" data-tab="cadastrar">Cadastrar</button>
+            <button class="tab-btn" data-tab="areas">Lugares</button>
+            <button class="tab-btn" data-tab="usuarios">Usuários</button>
         </div>
 
         <section id="tab-acessos" class="tab-conteudo ativo">
@@ -62,6 +64,16 @@
         </section>
 
         <section id="tab-funcionarios" class="tab-conteudo">
+            <div class="filtros">
+                <input type="text" id="filtro-func-nome" placeholder="Buscar por nome">
+                <input type="text" id="filtro-func-cargo" placeholder="Buscar por cargo">
+                <select id="filtro-func-status">
+                    <option value="">Todos os status</option>
+                    <option value="ativo">Ativos</option>
+                    <option value="inativo">Inativos</option>
+                </select>
+            </div>
+
             <table>
                 <thead>
                     <tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Cartões</th></tr>
@@ -71,6 +83,14 @@
         </section>
 
         <section id="tab-cadastrar" class="tab-conteudo">
+            <div id="uid-pendente-banner" class="flash flash-info uid-pendente-banner" style="display:none;">
+                <span class="uid-pendente-texto"></span>
+                <span class="uid-pendente-acoes">
+                    <button type="button" class="btn-link usar-uid-pendente">Usar este UID</button>
+                    <button type="button" class="btn-link descartar-uid-pendente">Descartar</button>
+                </span>
+            </div>
+
             <form id="form-cadastro-manual">
                 <div class="campo">
                     <label for="cad-uid">UID do cartão</label>
@@ -104,6 +124,77 @@
                 </div>
             </form>
         </section>
+
+        <section id="tab-areas" class="tab-conteudo">
+            <form id="form-area">
+                <input type="hidden" id="area-id">
+                <div class="campo">
+                    <label for="area-nome">Nome do lugar</label>
+                    <input type="text" id="area-nome" required>
+                </div>
+                <div class="campo">
+                    <label for="area-descricao">Descrição</label>
+                    <input type="text" id="area-descricao">
+                </div>
+
+                <div id="area-mensagem" class="flash" style="display:none;"></div>
+
+                <div class="acoes">
+                    <button type="submit" id="area-botao-salvar">Adicionar</button>
+                    <a href="#" id="area-cancelar-edicao" style="display:none;">Cancelar edição</a>
+                </div>
+            </form>
+
+            <table class="secao-tabela">
+                <thead>
+                    <tr><th>Nome</th><th>Descrição</th><th>Ações</th></tr>
+                </thead>
+                <tbody id="tabela-areas-corpo"></tbody>
+            </table>
+        </section>
+
+        <section id="tab-usuarios" class="tab-conteudo">
+            <form id="form-usuario">
+                <div class="campo">
+                    <label for="usuario-nome">Nome</label>
+                    <input type="text" id="usuario-nome" required>
+                </div>
+                <div class="campo">
+                    <label for="usuario-email">E-mail</label>
+                    <input type="email" id="usuario-email" required>
+                </div>
+                <div class="campo">
+                    <label for="usuario-senha">Senha inicial</label>
+                    <input type="text" id="usuario-senha" required>
+                </div>
+                <div class="campo">
+                    <label for="usuario-nivel">Nível de acesso</label>
+                    <select id="usuario-nivel" required>
+                        <option value="operador">Operador</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="campo">
+                    <label for="usuario-funcionario">Funcionário vinculado (opcional)</label>
+                    <select id="usuario-funcionario">
+                        <option value="">Nenhum</option>
+                    </select>
+                </div>
+
+                <div id="usuario-mensagem" class="flash" style="display:none;"></div>
+
+                <div class="acoes">
+                    <button type="submit">Criar usuário</button>
+                </div>
+            </form>
+
+            <table class="secao-tabela">
+                <thead>
+                    <tr><th>Nome</th><th>E-mail</th><th>Nível</th><th>Funcionário</th><th>Ações</th></tr>
+                </thead>
+                <tbody id="tabela-usuarios-corpo"></tbody>
+            </table>
+        </section>
     </main>
 
     <script src="js/auth.js"></script>
@@ -116,6 +207,9 @@
         initAbas();
         initFuncionarios();
         initCadastroManual();
+        initUidPendente();
+        initAreas();
+        initUsuarios();
     </script>
 </body>
 </html>

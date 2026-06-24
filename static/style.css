@@ -60,6 +60,26 @@ nav a:hover {
     border: 1px solid #f5c6cb;
 }
 
+.flash-info {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.uid-pendente-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    max-width: 480px;
+}
+
+.uid-pendente-acoes {
+    display: flex;
+    gap: 12px;
+    white-space: nowrap;
+}
+
 /* ── Conteúdo principal ────────────────────────────────────── */
 
 main {
@@ -418,4 +438,15 @@ nav button.btn-link:hover {
     align-items: center;
     gap: 10px;
     margin-bottom: 4px;
+}
+
+.secao-tabela {
+    margin-top: 20px;
+}
+
+.filtros input[type="text"] {
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
 }

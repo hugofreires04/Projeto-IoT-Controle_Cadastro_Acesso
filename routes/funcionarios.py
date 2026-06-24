@@ -63,6 +63,8 @@ def cadastrar_funcionario():
                 (nome, email, senha_hash, nivel_acesso, id_funcionario)
             )
 
+        cur.execute("DELETE FROM a3_uids_pendentes WHERE uid = %s", (uid,))
+
         cur.execute("SELECT * FROM a3_funcionarios WHERE id = %s", (id_funcionario,))
         funcionario = dict(cur.fetchone())
 
@@ -78,8 +80,29 @@ def cadastrar_funcionario():
 @requer_login
 @requer_admin
 def listar_funcionarios():
+    nome = request.args.get("nome", "").strip()
+    cargo = request.args.get("cargo", "").strip()
+    status = request.args.get("status", "").strip()
+
+    condicoes = ["1=1"]
+    params = []
+
+    if nome:
+        condicoes.append("nome ILIKE %s")
+        params.append(f"%{nome}%")
+    if cargo:
+        condicoes.append("cargo ILIKE %s")
+        params.append(f"%{cargo}%")
+    if status == "ativo":
+        condicoes.append("ativo = true")
+    elif status == "inativo":
+        condicoes.append("ativo = false")
+
     with get_cursor() as cur:
-        cur.execute("SELECT * FROM a3_funcionarios ORDER BY nome ASC")
+        cur.execute(
+            f"SELECT * FROM a3_funcionarios WHERE {' AND '.join(condicoes)} ORDER BY nome ASC",
+            params
+        )
         funcionarios = [dict(f) for f in cur.fetchall()]
 
         for funcionario in funcionarios:
@@ -121,10 +144,22 @@ def alterar_status_cartao(id_funcionario, id_cartao):
     return jsonify({"sucesso": True})
 
 
-@bp.route("/areas", methods=["GET"])
+@bp.route("/funcionarios/<int:id_funcionario>", methods=["PUT"])
 @requer_login
-def listar_areas():
-    with get_cursor() as cur:
-        cur.execute("SELECT * FROM a3_areas ORDER BY nome ASC")
-        areas = cur.fetchall()
-    return jsonify([dict(a) for a in areas])
+@requer_admin
+def alterar_status_funcionario(id_funcionario):
+    """Ativa/desativa o funcionário (não confundir com o status de cada cartão dele)."""
+    dados = request.get_json(force=True) or {}
+    if "ativo" not in dados:
+        return jsonify({"erro": "ativo é obrigatório"}), 400
+    ativo = bool(dados["ativo"])
+
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            "UPDATE a3_funcionarios SET ativo = %s, atualizado_em = NOW() WHERE id = %s",
+            (ativo, id_funcionario)
+        )
+        if cur.rowcount == 0:
+            return jsonify({"erro": "Funcionário não encontrado"}), 404
+
+    return jsonify({"sucesso": True, "ativo": ativo})

@@ -106,20 +106,28 @@ function initTabelaAcessos({ mostrarFiltroFuncionario = false } = {}) {
     _carregarAreas();
     if (mostrarFiltroFuncionario) _carregarFuncionarios();
 
+    const aplicarEReiniciarPagina = () => {
+        _tabelaAcessosEstado.pagina = 1;
+        _carregarAcessos();
+    };
+
+    // Aplica os filtros automaticamente ao trocar área/funcionário/data, sem
+    // precisar clicar em "Aplicar filtros" (que continua disponível por clareza).
+    document.getElementById("filtro-area")?.addEventListener("change", aplicarEReiniciarPagina);
+    document.getElementById("filtro-funcionario")?.addEventListener("change", aplicarEReiniciarPagina);
+    document.getElementById("filtro-data-inicio")?.addEventListener("change", aplicarEReiniciarPagina);
+    document.getElementById("filtro-data-fim")?.addEventListener("change", aplicarEReiniciarPagina);
+
     document.querySelectorAll(".badge-filtro").forEach((botao) => {
         botao.addEventListener("click", () => {
             document.querySelectorAll(".badge-filtro").forEach((b) => b.classList.remove("ativo"));
             botao.classList.add("ativo");
             _tabelaAcessosEstado.resultado = botao.dataset.resultado;
-            _tabelaAcessosEstado.pagina = 1;
-            _carregarAcessos();
+            aplicarEReiniciarPagina();
         });
     });
 
-    document.getElementById("btn-aplicar-filtros").addEventListener("click", () => {
-        _tabelaAcessosEstado.pagina = 1;
-        _carregarAcessos();
-    });
+    document.getElementById("btn-aplicar-filtros").addEventListener("click", aplicarEReiniciarPagina);
 
     document.getElementById("btn-exportar-csv").addEventListener("click", _exportarCSV);
 
