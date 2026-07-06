@@ -1,4 +1,14 @@
-"""Cadastro de lugares (áreas), usuários do sistema e fila de UIDs pendentes — CRUD pelo admin."""
+"""routes/cadastros.py — CRUDs de apoio do painel admin.
+
+Três domínios neste módulo:
+  /api/areas                  → lugares físicos controlados (aba Lugares)
+  /api/usuarios               → contas de login do painel (aba Usuários)
+  /api/cadastros/uid-pendente → fila de UIDs lidos na catraca em modo cadastro
+
+Todas as rotas exigem admin, exceto GET /api/areas (o operador precisa das
+áreas para o filtro do próprio histórico) e POST /api/cadastros/uid-pendente
+(chamada máquina-a-máquina vinda do Node-RED).
+"""
 
 import bcrypt
 from flask import Blueprint, jsonify, request
@@ -71,6 +81,7 @@ def editar_area(id_area):
 @requer_login
 @requer_admin
 def remover_area(id_area):
+    """Remove um lugar. As permissões que apontavam para ele caem junto (ON DELETE CASCADE)."""
     with get_cursor(commit=True) as cur:
         cur.execute("DELETE FROM a3_areas WHERE id = %s", (id_area,))
         if cur.rowcount == 0:
@@ -141,6 +152,7 @@ def criar_usuario():
 @requer_login
 @requer_admin
 def editar_usuario(id_usuario):
+    """Edição parcial: aceita nivel_acesso e/ou senha; monta o UPDATE só com o que veio."""
     dados = request.get_json(force=True) or {}
     nivel_acesso = dados.get("nivel_acesso")
     senha = dados.get("senha")
@@ -173,6 +185,7 @@ def editar_usuario(id_usuario):
 @requer_login
 @requer_admin
 def remover_usuario(id_usuario):
+    """Remove uma conta de login. Auto-remoção é bloqueada para o sistema nunca ficar sem admin logado."""
     if id_usuario == request.usuario["id_usuario"]:
         return jsonify({"erro": "Não é possível remover o próprio usuário"}), 400
 

@@ -27,16 +27,18 @@ routes/
 ├── auth_routes.py           → /api/login, /api/logout, /api/me
 ├── funcionarios.py          → /api/funcionarios, /api/funcionarios/<id>, /api/funcionarios/<id>/cartoes/<id>
 ├── cadastros.py              → /api/areas (CRUD), /api/usuarios (CRUD), /api/cadastros/uid-pendente
-└── acessos.py                → /api/acessos, /api/acessos/exportar, /api/acesso/<uid>, /api/acesso/log
+└── acessos.py                → /api/acessos, /api/acessos/estatisticas, /api/acessos/exportar, /api/acesso/<uid>, /api/acesso/log
 static/
 ├── login.html, admin.html, operador.html
 ├── js/auth.js                 → autenticação (token no localStorage)
 ├── js/acessos.js              → componente de tabela de acessos (filtros/paginação/CSV)
+├── js/dashboard.js            → aba Dashboard: tiles de estatística + gráfico SVG dos últimos 7 dias
 ├── js/admin.js                → abas do painel admin, listagem de funcionários, cadastro manual
-└── style.css
+└── style.css                  → design system do painel (tokens de cor, cards, tabelas, gráfico)
 database/schema.sql            → schema original (TimescaleDB)
 migrations/002_login.sql       → evolui o schema: a3_cartoes_rfid, a3_areas, a3_permissoes, a3_usuarios, a3_sessoes, a3_registros_acesso
 nodered/flow_acesso.json        → fluxo Node-RED do controle de acesso da catraca
+RELATORIO_FINAL.md              → relatório final do projeto (visão geral de tudo que foi construído)
 ```
 
 ## Requisitos
@@ -107,27 +109,27 @@ O painel estará disponível em `http://localhost:5000` (redireciona para `/stat
 
 #### Alternativa: rodar com Docker
 
-Com o `.env` já preenchido (passo 2), basta:
+Os arquivos de Docker (Dockerfile, docker-compose.yml e dockerignore) ficam na pasta `.devcontainer/`. Com o `.env` já preenchido (passo 2), rode a partir da raiz do projeto:
 
 ```bash
-docker compose up --build
+docker compose -f .devcontainer/docker-compose.yml up --build
 ```
 
-Isso constrói a imagem (Python 3.12 + dependências do `requirements.txt`) e sobe o container do Flask lendo as variáveis do `.env`. O painel fica disponível em `http://localhost:5000`. Para rodar em background, use `docker compose up --build -d` e acompanhe os logs com `docker compose logs -f`.
+Isso constrói a imagem (Python 3.12 + dependências do `requirements.txt`) e sobe o container do Flask lendo as variáveis do `.env`. O painel fica disponível em `http://localhost:5000`. Para rodar em background, use `docker compose -f .devcontainer/docker-compose.yml up --build -d` e acompanhe os logs com `docker compose -f .devcontainer/docker-compose.yml logs -f`.
 
 Para criar o usuário admin inicial dentro do container:
 
 ```bash
-docker compose exec app python setup_admin.py
+docker compose -f .devcontainer/docker-compose.yml exec app python setup_admin.py
 ```
 
 Para parar:
 
 ```bash
-docker compose down
+docker compose -f .devcontainer/docker-compose.yml down
 ```
 
-> O PostgreSQL/TimescaleDB e o broker MQTT são serviços remotos (ver `DATABASE_URL`/`MQTT_*` no `.env`) — o `docker-compose.yml` sobe apenas o container da aplicação Flask, não bancos ou brokers locais.
+> O PostgreSQL/TimescaleDB e o broker MQTT são serviços remotos (ver `DATABASE_URL`/`MQTT_*` no `.env`) — o compose sobe apenas o container da aplicação Flask, não bancos ou brokers locais.
 
 ### 6. Importar o fluxo no Node-RED
 
@@ -138,7 +140,7 @@ docker compose down
 
 ## Login e permissões
 
-- **admin**: acessa `/static/admin.html` — abas de Acessos (todos), Funcionários (com filtros por nome/cargo/status e ativar/desativar funcionário ou cartão individualmente), Cadastrar (formulário manual), Lugares (CRUD de áreas) e Usuários (CRUD de usuários do sistema).
+- **admin**: acessa `/static/admin.html` — abas de Dashboard (tiles de estatística do dia + gráfico de acessos dos últimos 7 dias, atualizados a cada 30s), Acessos (todos), Funcionários (com filtros por nome/cargo/status e ativar/desativar funcionário ou cartão individualmente), Cadastrar (formulário manual), Lugares (CRUD de áreas) e Usuários (CRUD de usuários do sistema).
 - **operador**: acessa `/static/operador.html` — vê apenas o próprio histórico de acessos (o backend força o filtro pelo `id_funcionario` vinculado ao usuário).
 
 O token de sessão é salvo no `localStorage` e enviado em todo fetch como `Authorization: Bearer <token>`. Sessões expiram 8h após o login (tabela `a3_sessoes`).
@@ -171,6 +173,7 @@ O UID pode vir de duas formas:
 | PUT | `/api/usuarios/<id>` | admin | Atualiza `nivel_acesso` e/ou redefine a `senha` |
 | DELETE | `/api/usuarios/<id>` | admin | Remove um usuário (exceto o próprio usuário logado) |
 | GET | `/api/acessos` | login | Lista paginada de acessos, com filtros (`funcionario_id`, `area_id`, `resultado`, `data_inicio`, `data_fim`, `page`, `limit`); operador só vê o próprio histórico |
+| GET | `/api/acessos/estatisticas` | admin | Resumo do dashboard: totais de hoje, funcionários ativos e série diária dos últimos 7 dias (agregada com `time_bucket` do TimescaleDB) |
 | GET | `/api/acessos/exportar` | login | Mesmos filtros, retorna CSV |
 | GET | `/api/acesso/<uid>` | — | Consultado pelo Node-RED a cada leitura na catraca; responde `{"nome", "autorizado", "isAdmin", "cargo"}` |
 | POST | `/api/acesso/log` | — | Registra o resultado de uma leitura (chamado pelo Node-RED) |

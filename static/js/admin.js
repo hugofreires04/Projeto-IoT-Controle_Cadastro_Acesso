@@ -1,5 +1,16 @@
-// Navegação por abas + listagem de funcionários + cadastro manual + lugares/usuários (admin.html).
+// admin.js — Lógica das abas do painel admin (admin.html):
+//   initAbas()           → troca de abas (mostra/esconde as <section>)
+//   initFuncionarios()   → listagem com busca + ativar/desativar pessoa e cartão
+//   initCadastroManual() → formulário de cadastro de funcionário
+//   initUidsPendentes()  → fila de UIDs lidos na catraca em modo cadastro
+//   initAreas()          → CRUD de lugares (áreas físicas)
+//   initUsuarios()       → CRUD de contas de login do painel
+//
+// Convenção: funções com prefixo _ são internas do arquivo; as init* são
+// chamadas uma vez pelo <script> no final do admin.html.
 
+// Liga cada botão .tab-btn à <section> de id "tab-<data-tab>": ao clicar,
+// remove a classe .ativo de tudo e aplica só no par botão/section clicado.
 function initAbas() {
     document.querySelectorAll(".tab-btn").forEach((botao) => {
         botao.addEventListener("click", () => {
@@ -11,6 +22,8 @@ function initAbas() {
     });
 }
 
+// Debounce: adia a execução de fn até o usuário parar de digitar por `espera` ms.
+// Evita uma requisição ao banco a cada tecla nos campos de busca.
 function _debounce(fn, espera) {
     let timer;
     return (...args) => {
@@ -21,8 +34,10 @@ function _debounce(fn, espera) {
 
 // ── Funcionários ───────────────────────────────────────────────────────────
 
+// Estado atual dos filtros de busca (nome/cargo com debounce, status imediato).
 let _filtroFuncionarios = { nome: "", cargo: "", status: "" };
 
+// Converte o estado dos filtros em query string (?nome=...&cargo=...&status=...).
 function _montarQueryFuncionarios() {
     const params = new URLSearchParams();
     if (_filtroFuncionarios.nome) params.set("nome", _filtroFuncionarios.nome);
@@ -31,6 +46,8 @@ function _montarQueryFuncionarios() {
     return params.toString();
 }
 
+// Busca os funcionários na API e redesenha a tabela inteira. Cada linha traz
+// o status da pessoa e a lista de cartões, ambos com botão de ativar/desativar.
 async function _renderFuncionarios() {
     const resposta = await apiFetch("/api/funcionarios?" + _montarQueryFuncionarios());
     const funcionarios = await resposta.json();
@@ -57,8 +74,9 @@ async function _renderFuncionarios() {
                 `).join("")}
             </td>
         </tr>
-    `).join("") || `<tr><td colspan="4">Nenhum funcionário encontrado.</td></tr>`;
+    `).join("") || `<tr><td colspan="4" class="vazio">Nenhum funcionário encontrado.</td></tr>`;
 
+    // Ativa/desativa um cartão específico (PUT no par funcionário+cartão).
     corpo.querySelectorAll(".toggle-cartao").forEach((botao) => {
         botao.addEventListener("click", async () => {
             const novoStatus = botao.dataset.ativo !== "true";
@@ -71,6 +89,7 @@ async function _renderFuncionarios() {
         });
     });
 
+    // Ativa/desativa o funcionário inteiro (independe do status de cada cartão).
     corpo.querySelectorAll(".toggle-funcionario").forEach((botao) => {
         botao.addEventListener("click", async () => {
             const novoStatus = botao.dataset.ativo !== "true";
@@ -86,8 +105,10 @@ async function _renderFuncionarios() {
 
 function initFuncionarios() {
     _renderFuncionarios();
+    // Recarrega ao entrar na aba, para refletir cadastros feitos em outras abas.
     document.querySelector('.tab-btn[data-tab="funcionarios"]').addEventListener("click", _renderFuncionarios);
 
+    // Busca "ao vivo": espera 300ms sem digitação antes de consultar a API.
     const aplicarFiltroComDelay = _debounce(_renderFuncionarios, 300);
 
     document.getElementById("filtro-func-nome").addEventListener("input", (evento) => {
@@ -106,6 +127,9 @@ function initFuncionarios() {
 
 // ── Cadastro manual de funcionário ──────────────────────────────────────────
 
+// Monta o formulário de cadastro: carrega os lugares como checkboxes de
+// permissão e envia tudo num único POST /api/funcionarios (que cria o
+// funcionário, o cartão, as permissões e, se pedido, a conta de login).
 async function initCadastroManual() {
     const resposta = await apiFetch("/api/areas");
     const areas = await resposta.json();
@@ -140,10 +164,19 @@ async function initCadastroManual() {
         });
         const dados = await resp.json();
 
+        // Se o cadastro criou uma conta de login junto, mostra a senha inicial
+        // gerada (derivada do UID) para o admin repassar ao funcionário.
+        let texto;
+        if (resp.ok) {
+            texto = `Funcionário "${dados.nome}" cadastrado com sucesso!`;
+            if (dados.usuario_criado) {
+                texto += ` Conta de acesso criada — senha inicial: ${dados.usuario_criado.senha_inicial}`;
+            }
+        } else {
+            texto = dados.erro || "Erro ao cadastrar funcionário.";
+        }
         mensagem.className = resp.ok ? "flash flash-sucesso" : "flash flash-erro";
-        mensagem.textContent = resp.ok
-            ? `Funcionário "${dados.nome}" cadastrado com sucesso!`
-            : (dados.erro || "Erro ao cadastrar funcionário.");
+        mensagem.textContent = texto;
         mensagem.style.display = "block";
 
         if (resp.ok) {
@@ -174,7 +207,7 @@ async function _renderUidsPendentes() {
             </span>
             <span class="uid-pendente-acoes">
                 <button type="button" class="btn-link usar-uid-pendente" data-uid="${p.uid}">Usar este UID</button>
-                <button type="button" class="btn-link descartar-uid-pendente" data-id="${p.id}">Descartar</button>
+                <button type="button" class="btn-link perigo descartar-uid-pendente" data-id="${p.id}">Descartar</button>
             </span>
         </div>
     `).join("");
@@ -195,11 +228,16 @@ async function _renderUidsPendentes() {
 
 function initUidsPendentes() {
     _renderUidsPendentes();
+    // Polling a cada 5s: se alguém passar um cartão novo na catraca com a aba
+    // aberta, o banner aparece sem precisar recarregar a página.
     setInterval(_renderUidsPendentes, 5000);
     document.querySelector('.tab-btn[data-tab="cadastrar"]').addEventListener("click", _renderUidsPendentes);
 }
 
 // ── Lugares (áreas) ─────────────────────────────────────────────────────────
+
+// O mesmo formulário serve para criar e editar: o campo hidden #area-id
+// vazio significa "criar" (POST); preenchido significa "editar" (PUT).
 
 async function _renderAreas() {
     const resposta = await apiFetch("/api/areas");
@@ -212,10 +250,12 @@ async function _renderAreas() {
             <td>${a.descricao || "—"}</td>
             <td>
                 <button class="btn-link editar-area" data-id="${a.id}" data-nome="${a.nome}" data-descricao="${a.descricao || ""}">Editar</button>
-                <button class="btn-link remover-area" data-id="${a.id}">Remover</button>
+                <button class="btn-link perigo remover-area" data-id="${a.id}">Remover</button>
             </td>
         </tr>
-    `).join("") || `<tr><td colspan="3">Nenhum lugar cadastrado.</td></tr>`;
+    `).join("") || `<tr><td colspan="3" class="vazio">Nenhum lugar cadastrado.</td></tr>`;
+
+    // "Editar" copia os dados da linha para o formulário e troca o modo do botão.
 
     corpo.querySelectorAll(".editar-area").forEach((botao) => {
         botao.addEventListener("click", () => {
@@ -288,6 +328,8 @@ function initAreas() {
 
 // ── Usuários do sistema ──────────────────────────────────────────────────────
 
+// Popula o select "Funcionário vinculado" do formulário de criação de usuário.
+// O vínculo é o que permite ao operador ver o próprio histórico de acessos.
 async function _carregarFuncionariosSelect() {
     const select = document.getElementById("usuario-funcionario");
     const resposta = await apiFetch("/api/funcionarios");
@@ -314,10 +356,12 @@ async function _renderUsuarios() {
             <td>${u.funcionario_nome || "—"}</td>
             <td>
                 <button class="btn-link redefinir-senha" data-id="${u.id}">Redefinir senha</button>
-                <button class="btn-link remover-usuario" data-id="${u.id}">Remover</button>
+                <button class="btn-link perigo remover-usuario" data-id="${u.id}">Remover</button>
             </td>
         </tr>
-    `).join("") || `<tr><td colspan="5">Nenhum usuário cadastrado.</td></tr>`;
+    `).join("") || `<tr><td colspan="5" class="vazio">Nenhum usuário cadastrado.</td></tr>`;
+
+    // O nível de acesso é editado direto no select da tabela (salva no change).
 
     corpo.querySelectorAll(".usuario-nivel").forEach((select) => {
         select.addEventListener("change", async () => {

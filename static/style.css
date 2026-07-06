@@ -1,3 +1,65 @@
+/* ============================================================================
+   style.css — Folha de estilo única do painel web
+   Projeto IoT — Controle de Cadastro e Acesso via RFID (ENG4051 / PUC-Rio)
+
+   Organização:
+     1. Tokens de design (variáveis CSS)     — cores, sombras, raios, fontes
+     2. Reset e base                         — tipografia e fundo da página
+     3. Navegação (topo)                     — barra fixa com usuário logado
+     4. Layout principal e abas              — container central + navegação por abas
+     5. Cards e tabelas                      — superfícies brancas com sombra
+     6. Badges e mensagens flash             — estados visuais (sucesso/erro/info)
+     7. Formulários                          — campos, foco, botões
+     8. Filtros e paginação                  — barra de filtros da lista de acessos
+     9. Dashboard                            — tiles de estatística + gráfico SVG
+    10. Login                                — página de entrada centralizada
+    11. Responsividade                       — ajustes para telas pequenas
+   ========================================================================== */
+
+
+/* ── 1. Tokens de design ────────────────────────────────────────────────────
+   Todas as cores/medidas do painel vivem aqui. Mudar um token muda o site
+   inteiro de forma consistente (mesma ideia de um "design system"). */
+:root {
+    /* Identidade — azul-marinho do projeto */
+    --cor-primaria: #1a1a2e;
+    --cor-primaria-2: #16213e;          /* tom levemente mais claro p/ gradiente */
+    --cor-primaria-hover: #2b2b4d;
+
+    /* Acento — usado em links, foco e detalhes interativos */
+    --cor-acento: #4361ee;
+    --cor-acento-suave: #eef1fe;
+
+    /* Superfícies e texto */
+    --cor-fundo: #f2f4f8;               /* fundo geral da página */
+    --cor-superficie: #ffffff;          /* cards, tabelas, formulários */
+    --cor-texto: #1f2430;
+    --cor-texto-suave: #64708a;
+    --cor-borda: #e4e7ee;
+
+    /* Estados (mesma semântica dos resultados de acesso) */
+    --cor-sucesso: #0ca30c;
+    --cor-sucesso-fundo: #e7f6e7;
+    --cor-sucesso-texto: #14641d;
+    --cor-erro: #d03b3b;
+    --cor-erro-fundo: #fdebeb;
+    --cor-erro-texto: #8c2323;
+    --cor-alerta: #c98500;
+    --cor-alerta-fundo: #fdf3dd;
+    --cor-alerta-texto: #7a5200;
+    --cor-info-fundo: #e8f1fb;
+    --cor-info-texto: #14508c;
+
+    /* Medidas compartilhadas */
+    --raio: 10px;                        /* raio padrão dos cards */
+    --raio-campo: 8px;                   /* raio de inputs e botões */
+    --sombra: 0 1px 3px rgba(16, 24, 40, .07), 0 1px 2px rgba(16, 24, 40, .05);
+    --sombra-alta: 0 8px 24px rgba(16, 24, 40, .12);
+    --fonte: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+}
+
+
+/* ── 2. Reset e base ──────────────────────────────────────────────────────── */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -5,72 +67,275 @@
 }
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: var(--fonte);
     font-size: 14px;
-    background: #f5f5f5;
-    color: #333;
+    background: var(--cor-fundo);
+    color: var(--cor-texto);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
 }
 
-/* ── Navegação ─────────────────────────────────────────────── */
+/* Anel de foco visível para navegação por teclado (acessibilidade) */
+:focus-visible {
+    outline: 2px solid var(--cor-acento);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
 
+
+/* ── 3. Navegação (topo) ──────────────────────────────────────────────────── */
 nav {
-    background: #1a1a2e;
+    background: linear-gradient(90deg, var(--cor-primaria), var(--cor-primaria-2));
     color: white;
-    padding: 12px 24px;
+    padding: 14px 28px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
+    position: sticky;                    /* barra acompanha a rolagem */
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, .25);
 }
 
 .nav-title {
-    font-weight: bold;
+    font-weight: 600;
     font-size: 16px;
     margin-right: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: .2px;
 }
 
-nav a {
-    color: #a8c6e8;
-    text-decoration: none;
-    font-size: 14px;
+/* Ícone (SVG inline) ao lado do título */
+.nav-title svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
 }
 
-nav a:hover {
+/* "Chip" com o nome do usuário logado */
+.nav-usuario {
+    color: #cdd6f4;
+    font-size: 13px;
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid rgba(255, 255, 255, .15);
+    padding: 4px 14px;
+    border-radius: 999px;
+}
+
+nav button.btn-link {
+    color: #cdd6f4;
+    border: 1px solid transparent;
+    padding: 4px 12px;
+    border-radius: var(--raio-campo);
+    transition: all .15s ease;
+}
+
+nav button.btn-link:hover {
     color: white;
-    text-decoration: underline;
+    background: rgba(255, 255, 255, .1);
+    text-decoration: none;
 }
 
-/* ── Flash messages ────────────────────────────────────────── */
+
+/* ── 4. Layout principal e abas ───────────────────────────────────────────── */
+main {
+    max-width: 1080px;
+    margin: 28px auto 60px;
+    padding: 0 20px;
+}
+
+h1 {
+    font-size: 22px;
+    margin-bottom: 4px;
+    color: var(--cor-primaria);
+}
+
+/* Subtítulo descritivo abaixo do título de cada aba/página */
+.subtitulo {
+    color: var(--cor-texto-suave);
+    font-size: 13.5px;
+    margin-bottom: 20px;
+}
+
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 24px;
+    border-bottom: 2px solid var(--cor-borda);
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--cor-texto-suave);
+    border-radius: var(--raio-campo) var(--raio-campo) 0 0;
+    /* borda inferior "flutua" sobre a linha do container */
+    margin-bottom: -2px;
+    border-bottom: 2px solid transparent;
+    transition: all .15s ease;
+}
+
+.tab-btn:hover {
+    color: var(--cor-primaria);
+    background: var(--cor-acento-suave);
+}
+
+.tab-btn.ativo {
+    color: var(--cor-primaria);
+    border-bottom-color: var(--cor-acento);
+    font-weight: 600;
+}
+
+/* Cada aba é uma <section>; só a ativa fica visível */
+.tab-conteudo {
+    display: none;
+}
+
+.tab-conteudo.ativo {
+    display: block;
+    animation: aparecer .2s ease;         /* transição suave ao trocar de aba */
+}
+
+@keyframes aparecer {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: none; }
+}
+
+
+/* ── 5. Cards e tabelas ───────────────────────────────────────────────────── */
+
+/* Envelope da tabela: garante cantos arredondados + rolagem horizontal
+   em telas estreitas sem quebrar o layout da página */
+.tabela-card {
+    background: var(--cor-superficie);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    border: 1px solid var(--cor-borda);
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--cor-superficie);
+}
+
+/* Cabeçalho claro e discreto (o navy fica reservado para a navegação) */
+thead th {
+    background: #f8f9fc;
+    color: var(--cor-texto-suave);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+th, td {
+    padding: 11px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+tbody tr {
+    transition: background .1s ease;
+}
+
+tbody tr:hover {
+    background: #f6f8fd;
+}
+
+/* Célula de "estado vazio" (nenhum registro encontrado) */
+td.vazio {
+    text-align: center;
+    color: var(--cor-texto-suave);
+    padding: 32px 16px;
+}
+
+code {
+    background: var(--cor-acento-suave);
+    color: var(--cor-primaria);
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-family: Consolas, "Courier New", monospace;
+}
+
+.secao-tabela {
+    margin-top: 24px;
+}
+
+
+/* ── 6. Badges e mensagens flash ─────────────────────────────────────────── */
+.badge {
+    display: inline-block;
+    padding: 3px 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge.ativo,
+.badge-liberado {
+    background: var(--cor-sucesso-fundo);
+    color: var(--cor-sucesso-texto);
+}
+
+.badge.inativo,
+.badge-negado {
+    background: var(--cor-erro-fundo);
+    color: var(--cor-erro-texto);
+}
+
+.badge-desconhecido {
+    background: var(--cor-alerta-fundo);
+    color: var(--cor-alerta-texto);
+}
 
 .flash {
-    padding: 10px 16px;
-    border-radius: 4px;
+    padding: 11px 16px;
+    border-radius: var(--raio-campo);
     margin-bottom: 20px;
     font-size: 14px;
+    animation: aparecer .2s ease;
 }
 
 .flash-sucesso {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
+    background: var(--cor-sucesso-fundo);
+    color: var(--cor-sucesso-texto);
+    border: 1px solid #bfe6bf;
 }
 
 .flash-erro {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
+    background: var(--cor-erro-fundo);
+    color: var(--cor-erro-texto);
+    border: 1px solid #f3c3c3;
 }
 
 .flash-info {
-    background: #d1ecf1;
-    color: #0c5460;
-    border: 1px solid #bee5eb;
+    background: var(--cor-info-fundo);
+    color: var(--cor-info-texto);
+    border: 1px solid #c4dcf5;
 }
 
+/* Banners de UID pendente (cartão lido na catraca em modo cadastro) */
 .uid-pendentes-lista {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-width: 480px;
+    max-width: 560px;
     margin-bottom: 20px;
 }
 
@@ -88,147 +353,54 @@ nav a:hover {
     white-space: nowrap;
 }
 
-/* ── Conteúdo principal ────────────────────────────────────── */
 
-main {
-    max-width: 1000px;
-    margin: 30px auto;
-    padding: 0 20px;
-}
-
-h1 {
-    font-size: 22px;
-    margin-bottom: 20px;
-    color: #1a1a2e;
-}
-
-h2 {
-    font-size: 18px;
-    margin-top: 40px;
-    margin-bottom: 16px;
-    color: #1a1a2e;
-}
-
-/* ── Tabelas ───────────────────────────────────────────────── */
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-    border-radius: 6px;
-    overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-}
-
-thead {
-    background: #1a1a2e;
-    color: white;
-}
-
-th, td {
-    padding: 10px 14px;
-    text-align: left;
-    border-bottom: 1px solid #e0e0e0;
-}
-
-tbody tr:last-child td {
-    border-bottom: none;
-}
-
-tbody tr:hover {
-    background: #f0f4ff;
-}
-
-code {
-    background: #eef;
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-size: 12px;
-}
-
-/* ── Badges de status ──────────────────────────────────────── */
-
-.badge {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: bold;
-}
-
-.badge.ativo {
-    background: #d4edda;
-    color: #155724;
-}
-
-.badge.inativo {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-/* ── Links e botões na tabela ──────────────────────────────── */
-
-td a {
-    color: #0056b3;
-    text-decoration: none;
-}
-
-td a:hover {
-    text-decoration: underline;
-}
-
-.btn-link {
-    background: none;
-    border: none;
-    color: #c0392b;
-    cursor: pointer;
-    font-size: 14px;
-    padding: 0;
-    text-decoration: none;
-}
-
-.btn-link:hover {
-    text-decoration: underline;
-}
-
-/* ── Formulários ───────────────────────────────────────────── */
-
+/* ── 7. Formulários ──────────────────────────────────────────────────────── */
 form {
-    background: white;
-    padding: 24px;
-    border-radius: 6px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    max-width: 480px;
+    background: var(--cor-superficie);
+    padding: 28px;
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    border: 1px solid var(--cor-borda);
+    max-width: 520px;
 }
 
 .campo {
     margin-bottom: 16px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 
 .campo label {
-    font-weight: bold;
-    color: #444;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--cor-texto);
 }
 
 .campo input[type="text"],
-.campo input[type="email"] {
-    padding: 8px 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+.campo input[type="email"],
+.campo input[type="password"],
+.campo select {
+    padding: 9px 12px;
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--raio-campo);
     font-size: 14px;
+    font-family: inherit;
     width: 100%;
+    background: var(--cor-superficie);
+    transition: border-color .15s ease, box-shadow .15s ease;
 }
 
-.campo input:focus {
+/* Foco: borda acento + "glow" suave (padrão de design systems modernos) */
+.campo input:focus,
+.campo select:focus {
     outline: none;
-    border-color: #1a1a2e;
+    border-color: var(--cor-acento);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, .15);
 }
 
 .campo small {
-    color: #777;
+    color: var(--cor-texto-suave);
     font-size: 12px;
 }
 
@@ -242,6 +414,7 @@ form {
     width: 16px;
     height: 16px;
     cursor: pointer;
+    accent-color: var(--cor-acento);
 }
 
 .campo-checkbox label {
@@ -249,124 +422,147 @@ form {
     cursor: pointer;
 }
 
-/* ── Ações do formulário ───────────────────────────────────── */
+.areas-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
 
+/* Linha "UID + botão ativar/desativar" dentro da tabela de funcionários */
+.cartao-linha {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+/* Botões de ação (submit) e links de apoio */
 .acoes {
     margin-top: 20px;
     display: flex;
     align-items: center;
-    gap: 16px;
+    flex-wrap: wrap;
+    gap: 14px;
 }
 
-.acoes button[type="submit"] {
-    background: #1a1a2e;
+.acoes button {
+    font-family: inherit;
+}
+
+.acoes button[type="submit"],
+.btn-primario {
+    background: var(--cor-primaria);
     color: white;
     border: none;
-    padding: 9px 20px;
-    border-radius: 4px;
+    padding: 10px 22px;
+    border-radius: var(--raio-campo);
     font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
+    transition: background .15s ease, transform .1s ease;
 }
 
-.acoes button[type="submit"]:hover {
-    background: #2e2e5e;
+.acoes button[type="submit"]:hover,
+.btn-primario:hover {
+    background: var(--cor-primaria-hover);
+}
+
+.acoes button[type="submit"]:active,
+.btn-primario:active {
+    transform: translateY(1px);
+}
+
+/* Botão secundário (contorno) — usado em "Aplicar filtros", "Exportar CSV" */
+.btn-secundario {
+    background: var(--cor-superficie);
+    color: var(--cor-texto);
+    border: 1px solid var(--cor-borda);
+    padding: 9px 18px;
+    border-radius: var(--raio-campo);
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all .15s ease;
+}
+
+.btn-secundario:hover {
+    border-color: var(--cor-acento);
+    color: var(--cor-acento);
+    background: var(--cor-acento-suave);
 }
 
 .acoes a {
-    color: #555;
+    color: var(--cor-texto-suave);
     text-decoration: none;
     font-size: 14px;
 }
 
 .acoes a:hover {
+    color: var(--cor-acento);
     text-decoration: underline;
 }
 
-/* ── Login ─────────────────────────────────────────────────── */
-
-.login-container {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
-}
-
-.login-box {
-    width: 320px;
-}
-
-.login-box h1 {
-    font-size: 18px;
-    margin-bottom: 20px;
-}
-
-/* ── Header com usuário logado ────────────────────────────── */
-
-.nav-usuario {
-    color: #a8c6e8;
-    font-size: 14px;
-}
-
-nav button.btn-link {
-    color: #a8c6e8;
-}
-
-nav button.btn-link:hover {
-    color: white;
-}
-
-/* ── Abas ──────────────────────────────────────────────────── */
-
-.tabs {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 20px;
-    border-bottom: 1px solid #ddd;
-}
-
-.tab-btn {
+/* Links/botões discretos dentro de tabelas (editar, remover, ativar…) */
+td a,
+.btn-link {
     background: none;
     border: none;
-    padding: 10px 16px;
-    font-size: 14px;
+    color: var(--cor-acento);
     cursor: pointer;
-    color: #555;
-    border-bottom: 2px solid transparent;
+    font-size: 13px;
+    font-family: inherit;
+    padding: 0;
+    text-decoration: none;
 }
 
-.tab-btn.ativo {
-    color: #1a1a2e;
-    border-bottom-color: #1a1a2e;
-    font-weight: bold;
+td a:hover,
+.btn-link:hover {
+    text-decoration: underline;
 }
 
-.tab-conteudo {
-    display: none;
+/* Variante destrutiva (remover/descartar) em vermelho */
+.btn-link.perigo {
+    color: var(--cor-erro);
 }
 
-.tab-conteudo.ativo {
-    display: block;
-}
 
-/* ── Filtros da lista de acessos ──────────────────────────── */
-
+/* ── 8. Filtros e paginação ──────────────────────────────────────────────── */
 .filtros {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
+}
+
+.filtros label {
+    color: var(--cor-texto-suave);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .filtros select,
-.filtros input[type="date"] {
-    padding: 6px 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 14px;
+.filtros input[type="date"],
+.filtros input[type="text"] {
+    padding: 8px 10px;
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--raio-campo);
+    font-size: 13.5px;
+    font-family: inherit;
+    background: var(--cor-superficie);
+    transition: border-color .15s ease, box-shadow .15s ease;
 }
 
+.filtros select:focus,
+.filtros input:focus {
+    outline: none;
+    border-color: var(--cor-acento);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, .15);
+}
+
+/* Filtros rápidos por resultado (pílulas clicáveis) */
 .badges-filtro {
     display: flex;
     flex-wrap: wrap;
@@ -375,86 +571,298 @@ nav button.btn-link:hover {
 }
 
 .badge-filtro {
-    background: white;
-    border: 1px solid #ccc;
-    border-radius: 12px;
-    padding: 4px 12px;
-    font-size: 12px;
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda);
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 12.5px;
+    font-family: inherit;
+    color: var(--cor-texto-suave);
     cursor: pointer;
+    transition: all .15s ease;
+}
+
+.badge-filtro:hover {
+    border-color: var(--cor-acento);
+    color: var(--cor-acento);
 }
 
 .badge-filtro.ativo {
-    background: #1a1a2e;
+    background: var(--cor-primaria);
     color: white;
-    border-color: #1a1a2e;
-}
-
-.badge-liberado {
-    background: #d4edda;
-    color: #155724;
-}
-
-.badge-negado {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-.badge-desconhecido {
-    background: #fff3cd;
-    color: #856404;
+    border-color: var(--cor-primaria);
+    font-weight: 600;
 }
 
 .totalizador {
     margin-bottom: 12px;
-    font-size: 14px;
-    color: #555;
+    font-size: 13.5px;
+    color: var(--cor-texto-suave);
 }
-
-/* ── Paginação ─────────────────────────────────────────────── */
 
 .paginacao {
     display: flex;
     align-items: center;
     gap: 16px;
     margin-top: 16px;
-    font-size: 14px;
+    font-size: 13.5px;
+    color: var(--cor-texto-suave);
 }
 
 .paginacao button {
-    padding: 6px 14px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    background: white;
+    padding: 7px 16px;
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--raio-campo);
+    background: var(--cor-superficie);
+    font-family: inherit;
     cursor: pointer;
+    transition: all .15s ease;
+}
+
+.paginacao button:hover:not(:disabled) {
+    border-color: var(--cor-acento);
+    color: var(--cor-acento);
 }
 
 .paginacao button:disabled {
-    opacity: 0.5;
+    opacity: .45;
     cursor: default;
 }
 
-/* ── Áreas (checkboxes) e cartões ──────────────────────────── */
 
-.areas-checkboxes {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+/* ── 9. Dashboard ────────────────────────────────────────────────────────── */
+
+/* Grade de tiles de estatística (KPIs) */
+.tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
 }
 
-.cartao-linha {
+.tile {
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    padding: 18px 20px;
+}
+
+.tile-rotulo {
+    font-size: 13px;
+    color: var(--cor-texto-suave);
+    margin-bottom: 6px;
+}
+
+.tile-valor {
+    font-size: 30px;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    line-height: 1.1;
+}
+
+/* Cores de contexto do valor (ex.: negados em vermelho) */
+.tile-valor.sucesso { color: var(--cor-sucesso-texto); }
+.tile-valor.erro    { color: var(--cor-erro-texto); }
+
+.tile-detalhe {
+    font-size: 12px;
+    color: var(--cor-texto-suave);
+    margin-top: 4px;
+}
+
+/* Card do gráfico */
+.grafico-card {
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    padding: 20px 24px;
+    position: relative;                  /* referência p/ o tooltip absoluto */
+}
+
+.grafico-titulo {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--cor-primaria);
+}
+
+.grafico-subtitulo {
+    font-size: 12.5px;
+    color: var(--cor-texto-suave);
+    margin-bottom: 14px;
+}
+
+/* Legenda: quadradinho colorido (mesma cor da série) + rótulo em texto */
+.grafico-legenda {
     display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-bottom: 12px;
+    font-size: 12.5px;
+    color: var(--cor-texto-suave);
+}
+
+.grafico-legenda span {
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
+}
+
+.legenda-cor {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.grafico-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Tooltip do gráfico — segue o mouse sobre as colunas */
+.grafico-tooltip {
+    position: absolute;
+    pointer-events: none;               /* não rouba o hover das colunas */
+    background: var(--cor-primaria);
+    color: white;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    box-shadow: var(--sombra-alta);
+    opacity: 0;
+    transition: opacity .1s ease;
+    z-index: 5;
+    min-width: 130px;
+}
+
+.grafico-tooltip.visivel {
+    opacity: 1;
+}
+
+.grafico-tooltip .tt-dia {
+    font-weight: 600;
     margin-bottom: 4px;
 }
 
-.secao-tabela {
-    margin-top: 20px;
+.grafico-tooltip .tt-linha {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
-.filtros input[type="text"] {
-    padding: 6px 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 14px;
+.grafico-tooltip .tt-serie {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #cdd6f4;
+}
+
+/* Mensagem quando ainda não há registros para plotar */
+.grafico-vazio {
+    text-align: center;
+    color: var(--cor-texto-suave);
+    padding: 40px 0;
+}
+
+.dashboard-rodape {
+    font-size: 12px;
+    color: var(--cor-texto-suave);
+    margin-top: 12px;
+    text-align: right;
+}
+
+
+/* ── 10. Login ───────────────────────────────────────────────────────────── */
+.pagina-login {
+    /* fundo em gradiente navy — mesma identidade da barra de navegação */
+    background: linear-gradient(135deg, var(--cor-primaria) 0%, var(--cor-primaria-2) 55%, #0f3460 100%);
+}
+
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 20px;
+}
+
+.login-box {
+    width: 360px;
+    max-width: 100%;
+    box-shadow: var(--sombra-alta);
+    border: none;
+    padding: 36px 32px;
+}
+
+.login-box h1 {
+    font-size: 20px;
+    margin-bottom: 2px;
+    text-align: center;
+}
+
+.login-subtitulo {
+    text-align: center;
+    color: var(--cor-texto-suave);
+    font-size: 13px;
+    margin-bottom: 24px;
+}
+
+/* Ícone circular no topo do card de login */
+.login-icone {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 14px;
+    background: var(--cor-acento-suave);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-icone svg {
+    width: 26px;
+    height: 26px;
+}
+
+.login-box .acoes button[type="submit"] {
+    width: 100%;
+    justify-content: center;
+    padding: 11px;
+}
+
+
+/* ── 11. Responsividade ──────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    nav {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+    }
+
+    main {
+        margin-top: 20px;
+        padding: 0 12px;
+    }
+
+    .tabs {
+        overflow-x: auto;               /* abas rolam horizontalmente no celular */
+        flex-wrap: nowrap;
+    }
+
+    .tab-btn {
+        white-space: nowrap;
+        padding: 10px 12px;
+    }
+
+    form {
+        padding: 20px;
+    }
+
+    .tile-valor {
+        font-size: 24px;
+    }
 }

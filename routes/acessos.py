@@ -1,18 +1,27 @@
-"""Lista de acessos (com filtros/paginação/CSV) + endpoints legados da catraca.
+"""routes/acessos.py — Registros de acesso: consulta pelo painel + integração com a catraca.
 
-Os endpoints GET /api/acesso/<uid> e POST /api/acesso/log são consumidos pelo
-fluxo Node-RED já existente (nodered/flow_acesso.json) — o contrato JSON é
-mantido igual ao da Task 1 para não exigir mudanças no Node-RED/ESP32, mas
-agora gravam em a3_registros_acesso (resultado) em vez de a3_logs_acesso (autorizado).
+Dois grupos de rotas convivem aqui:
+
+  Consumidas pelo PAINEL WEB (exigem login):
+    GET /api/acessos               → lista paginada com filtros e totalizadores
+    GET /api/acessos/estatisticas  → resumo do dashboard (admin)
+    GET /api/acessos/exportar      → mesmos filtros da lista, em CSV
+
+  Consumidas pelo NODE-RED (máquina-a-máquina, sem login):
+    GET  /api/acesso/<uid>  → decide se libera a catraca para o cartão lido
+    POST /api/acesso/log    → grava o resultado da leitura em a3_registros_acesso
+
+O contrato JSON das rotas do Node-RED é mantido igual ao da Task 1 para não
+exigir mudanças no fluxo (nodered/flow_acesso.json) nem no firmware do ESP32.
 """
 
 import csv
 import io
-from datetime import date
+from datetime import date, timedelta
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from auth import requer_login
+from auth import requer_admin, requer_login
 from db import get_cursor, normalizar_uid
 
 bp = Blueprint("acessos", __name__, url_prefix="/api")
@@ -157,6 +166,12 @@ _SELECT_BASE = """
 @bp.route("/acessos", methods=["GET"])
 @requer_login
 def listar_acessos():
+    """Lista paginada de acessos com filtros + totalizadores por resultado.
+
+    Além da página pedida, devolve o total geral e a contagem por resultado
+    (liberados/negados/desconhecidos) calculada sobre TODOS os registros que
+    casam com o filtro — é o que alimenta o totalizador acima da tabela.
+    """
     where, params = _montar_filtros()
 
     page = max(int(request.args.get("page", 1)), 1)
@@ -209,9 +224,83 @@ def listar_acessos():
     })
 
 
+@bp.route("/acessos/estatisticas", methods=["GET"])
+@requer_login
+@requer_admin
+def estatisticas_acessos():
+    """Resumo para o dashboard do painel admin.
+
+    Retorna os totais do dia atual, contagens gerais (funcionários ativos,
+    lugares) e a série dos últimos 7 dias agregada por dia/resultado. A
+    agregação diária usa time_bucket(), função do TimescaleDB otimizada para
+    janelamento temporal em hipertabelas (mesma técnica usada no Grafana).
+    """
+    with get_cursor() as cur:
+        # Totais de hoje, quebrados por resultado.
+        cur.execute(
+            """SELECT resultado, COUNT(*) AS total
+               FROM a3_registros_acesso
+               WHERE data_hora >= CURRENT_DATE
+               GROUP BY resultado"""
+        )
+        hoje = {linha["resultado"]: linha["total"] for linha in cur.fetchall()}
+
+        # Série diária dos últimos 7 dias (hoje incluído), por resultado.
+        cur.execute(
+            """SELECT time_bucket('1 day', data_hora) AS dia, resultado, COUNT(*) AS total
+               FROM a3_registros_acesso
+               WHERE data_hora >= CURRENT_DATE - INTERVAL '6 days'
+               GROUP BY dia, resultado
+               ORDER BY dia ASC"""
+        )
+        por_dia = cur.fetchall()
+
+        cur.execute("SELECT COUNT(*) AS total FROM a3_funcionarios WHERE ativo")
+        funcionarios_ativos = cur.fetchone()["total"]
+
+        cur.execute("SELECT COUNT(*) AS total FROM a3_areas")
+        total_areas = cur.fetchone()["total"]
+
+    # Reorganiza a série em um dicionário {data: {liberados, negados, desconhecidos}}
+    # para depois preencher os dias sem registro com zeros (o GROUP BY só devolve
+    # dias que têm pelo menos uma linha, mas o gráfico precisa dos 7 dias).
+    serie = {}
+    for linha in por_dia:
+        dia = linha["dia"].date().isoformat()
+        ponto = serie.setdefault(dia, {"liberados": 0, "negados": 0, "desconhecidos": 0})
+        if linha["resultado"] == "liberado":
+            ponto["liberados"] += linha["total"]
+        elif linha["resultado"] == "negado_desconhecido":
+            ponto["desconhecidos"] += linha["total"]
+        else:  # negado_sem_permissao / negado_inativo
+            ponto["negados"] += linha["total"]
+
+    ultimos_7_dias = []
+    for i in range(6, -1, -1):
+        dia = (date.today() - timedelta(days=i)).isoformat()
+        ponto = serie.get(dia, {"liberados": 0, "negados": 0, "desconhecidos": 0})
+        ultimos_7_dias.append({"dia": dia, **ponto})
+
+    negados_hoje = hoje.get("negado_sem_permissao", 0) + hoje.get("negado_inativo", 0)
+    desconhecidos_hoje = hoje.get("negado_desconhecido", 0)
+
+    return jsonify({
+        "hoje": {
+            "total": hoje.get("liberado", 0) + negados_hoje + desconhecidos_hoje,
+            "liberados": hoje.get("liberado", 0),
+            "negados": negados_hoje,
+            "desconhecidos": desconhecidos_hoje,
+        },
+        "funcionarios_ativos": funcionarios_ativos,
+        "total_areas": total_areas,
+        "ultimos_7_dias": ultimos_7_dias,
+    })
+
+
 @bp.route("/acessos/exportar", methods=["GET"])
 @requer_login
 def exportar_acessos():
+    """Exporta os acessos em CSV com os mesmos filtros da listagem (sem paginação)."""
     where, params = _montar_filtros()
 
     with get_cursor() as cur:

@@ -1,4 +1,12 @@
-"""Funcionários — cadastro manual (pelo admin) e áreas."""
+"""routes/funcionarios.py — Cadastro e gestão de funcionários e seus cartões.
+
+Modelo de dados relevante:
+  a3_funcionarios (pessoa) 1—N a3_cartoes_rfid (cartão) N—N a3_areas (permissões)
+
+Um funcionário pode ter vários cartões, e cada cartão tem sua própria lista
+de áreas permitidas. Pessoa e cartão têm flags `ativo` independentes — a
+catraca nega o acesso se qualquer um dos dois estiver inativo.
+"""
 
 import bcrypt
 from flask import Blueprint, jsonify, request
@@ -10,6 +18,7 @@ bp = Blueprint("funcionarios", __name__, url_prefix="/api")
 
 
 def _email_padrao(nome: str) -> str:
+    """E-mail gerado para contas criadas junto com o cadastro (nome sem espaços)."""
     return nome.strip().lower().replace(" ", "") + "@sistema.com"
 
 
@@ -17,6 +26,14 @@ def _email_padrao(nome: str) -> str:
 @requer_login
 @requer_admin
 def cadastrar_funcionario():
+    """Cadastro completo em uma transação só: funcionário + cartão + permissões.
+
+    Se nivel_acesso vier preenchido (admin/operador), também cria a conta de
+    login do funcionário, com senha inicial derivada do UID do cartão (os 8
+    primeiros caracteres) — a senha gerada volta na resposta para o admin
+    repassar à pessoa. Por fim, remove o UID da fila de pendentes (caso o
+    cadastro tenha partido de uma leitura na catraca).
+    """
     dados = request.get_json(force=True) or {}
     uid = normalizar_uid(dados.get("uid", ""))
     nome = dados.get("nome", "").strip()
@@ -80,6 +97,12 @@ def cadastrar_funcionario():
 @requer_login
 @requer_admin
 def listar_funcionarios():
+    """Lista funcionários com busca por nome/cargo (ILIKE) e filtro de status.
+
+    A resposta é aninhada: cada funcionário traz seus cartões, e cada cartão
+    traz as áreas que ele pode acessar — é o formato que a tabela da aba
+    Funcionários consome direto.
+    """
     nome = request.args.get("nome", "").strip()
     cargo = request.args.get("cargo", "").strip()
     status = request.args.get("status", "").strip()
@@ -130,6 +153,7 @@ def listar_funcionarios():
 @requer_login
 @requer_admin
 def alterar_status_cartao(id_funcionario, id_cartao):
+    """Ativa/desativa um cartão específico (ex.: cartão perdido) sem mexer no funcionário."""
     dados = request.get_json(force=True) or {}
     ativo = bool(dados.get("ativo", True))
 

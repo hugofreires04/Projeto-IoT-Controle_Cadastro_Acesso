@@ -1,4 +1,16 @@
 <!DOCTYPE html>
+<!--
+  admin.html — Painel do administrador
+  Projeto IoT — Controle de Cadastro e Acesso via RFID (ENG4051 / PUC-Rio)
+
+  Organizado em abas (mostradas/escondidas via JS, sem recarregar a página):
+    Dashboard    → visão geral: tiles de estatística + gráfico dos últimos 7 dias
+    Acessos      → lista completa de acessos com filtros, paginação e export CSV
+    Funcionários → listagem com busca e ativação/desativação de pessoas e cartões
+    Cadastrar    → cadastro manual de funcionário + fila de UIDs lidos na catraca
+    Lugares      → CRUD das áreas físicas controladas
+    Usuários     → CRUD das contas de login do painel (admin/operador)
+-->
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -7,22 +19,87 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Barra de navegação: título do sistema, usuário logado e logout -->
     <nav>
-        <span class="nav-title">Controle de Acesso RFID</span>
+        <span class="nav-title">
+            <!-- Ícone: cartão RFID com ondas de rádio (SVG inline, sem dependências) -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="5" width="15" height="11" rx="2"/>
+                <circle cx="7.5" cy="10.5" r="1.6"/>
+                <path d="M18.5 8.5a5 5 0 0 1 0 4"/>
+                <path d="M21 6.5a8.5 8.5 0 0 1 0 8"/>
+            </svg>
+            Controle de Acesso RFID
+        </span>
         <span id="header-usuario-nome" class="nav-usuario"></span>
         <button id="btn-sair" class="btn-link">Sair</button>
     </nav>
 
     <main>
+        <!-- Navegação por abas: data-tab liga cada botão à section correspondente -->
         <div class="tabs">
-            <button class="tab-btn ativo" data-tab="acessos">Acessos</button>
+            <button class="tab-btn ativo" data-tab="dashboard">Dashboard</button>
+            <button class="tab-btn" data-tab="acessos">Acessos</button>
             <button class="tab-btn" data-tab="funcionarios">Funcionários</button>
             <button class="tab-btn" data-tab="cadastrar">Cadastrar</button>
             <button class="tab-btn" data-tab="areas">Lugares</button>
             <button class="tab-btn" data-tab="usuarios">Usuários</button>
         </div>
 
-        <section id="tab-acessos" class="tab-conteudo ativo">
+        <!-- ══ Aba: Dashboard ══════════════════════════════════════════════ -->
+        <section id="tab-dashboard" class="tab-conteudo ativo">
+            <h1>Visão geral</h1>
+            <p class="subtitulo">Resumo do movimento da catraca — os dados se atualizam automaticamente a cada 30 segundos.</p>
+
+            <!-- Tiles de estatística (preenchidos por js/dashboard.js) -->
+            <div class="tiles">
+                <div class="tile">
+                    <div class="tile-rotulo">Acessos hoje</div>
+                    <div class="tile-valor" id="tile-hoje">—</div>
+                    <div class="tile-detalhe">todas as leituras de cartão</div>
+                </div>
+                <div class="tile">
+                    <div class="tile-rotulo">Liberados hoje</div>
+                    <div class="tile-valor sucesso" id="tile-liberados">—</div>
+                    <div class="tile-detalhe">catraca aberta</div>
+                </div>
+                <div class="tile">
+                    <div class="tile-rotulo">Negados hoje</div>
+                    <div class="tile-valor erro" id="tile-negados">—</div>
+                    <div class="tile-detalhe">inclui cartões desconhecidos</div>
+                </div>
+                <div class="tile">
+                    <div class="tile-rotulo">Funcionários ativos</div>
+                    <div class="tile-valor" id="tile-funcionarios">—</div>
+                    <div class="tile-detalhe" id="tile-funcionarios-detalhe"></div>
+                </div>
+            </div>
+
+            <!-- Gráfico de colunas empilhadas: acessos por dia (últimos 7 dias) -->
+            <div class="grafico-card">
+                <div class="grafico-titulo">Acessos por dia</div>
+                <div class="grafico-subtitulo">Últimos 7 dias · detalhamento completo na aba Acessos</div>
+
+                <!-- Legenda das séries (mesmas cores usadas no SVG) -->
+                <div class="grafico-legenda">
+                    <span><span class="legenda-cor" style="background:#0ca30c"></span> Liberados</span>
+                    <span><span class="legenda-cor" style="background:#d03b3b"></span> Negados</span>
+                    <span><span class="legenda-cor" style="background:#c98500"></span> Desconhecidos</span>
+                </div>
+
+                <div id="grafico-container"></div>
+                <div id="grafico-tooltip" class="grafico-tooltip"></div>
+            </div>
+
+            <p id="dashboard-atualizado" class="dashboard-rodape"></p>
+        </section>
+
+        <!-- ══ Aba: Acessos ════════════════════════════════════════════════ -->
+        <section id="tab-acessos" class="tab-conteudo">
+            <h1>Registros de acesso</h1>
+            <p class="subtitulo">Cada leitura de cartão na catraca gera um registro — filtre por funcionário, lugar, período ou resultado.</p>
+
+            <!-- Filtros: aplicados automaticamente ao mudar (ver js/acessos.js) -->
             <div class="filtros">
                 <select id="filtro-funcionario">
                     <option value="">Todos os funcionários</option>
@@ -34,6 +111,7 @@
                 <label>Até <input type="date" id="filtro-data-fim"></label>
             </div>
 
+            <!-- Filtros rápidos por resultado (pílulas) -->
             <div class="badges-filtro">
                 <button class="badge-filtro ativo" data-resultado="">Todos</button>
                 <button class="badge-filtro" data-resultado="liberado">Liberado</button>
@@ -43,18 +121,21 @@
             </div>
 
             <div class="acoes">
-                <button id="btn-aplicar-filtros">Aplicar filtros</button>
-                <button id="btn-exportar-csv">Exportar CSV</button>
+                <button id="btn-aplicar-filtros" class="btn-secundario">Aplicar filtros</button>
+                <button id="btn-exportar-csv" class="btn-secundario">Exportar CSV</button>
             </div>
 
+            <!-- Totalizador: "N liberados · N negados · N desconhecidos" -->
             <p id="totalizador" class="totalizador"></p>
 
-            <table>
-                <thead>
-                    <tr><th>Funcionário</th><th>Área</th><th>Resultado</th><th>Data/Hora</th></tr>
-                </thead>
-                <tbody id="tabela-acessos-corpo"></tbody>
-            </table>
+            <div class="tabela-card">
+                <table>
+                    <thead>
+                        <tr><th>Funcionário</th><th>Área</th><th>Resultado</th><th>Data/Hora</th></tr>
+                    </thead>
+                    <tbody id="tabela-acessos-corpo"></tbody>
+                </table>
+            </div>
 
             <div class="paginacao">
                 <button id="btn-pag-anterior">Anterior</button>
@@ -63,7 +144,12 @@
             </div>
         </section>
 
+        <!-- ══ Aba: Funcionários ═══════════════════════════════════════════ -->
         <section id="tab-funcionarios" class="tab-conteudo">
+            <h1>Funcionários</h1>
+            <p class="subtitulo">Ative ou desative pessoas e cartões — um funcionário pode ter mais de um cartão RFID.</p>
+
+            <!-- Busca com debounce (300ms) por nome/cargo + filtro de status -->
             <div class="filtros">
                 <input type="text" id="filtro-func-nome" placeholder="Buscar por nome">
                 <input type="text" id="filtro-func-cargo" placeholder="Buscar por cargo">
@@ -74,21 +160,29 @@
                 </select>
             </div>
 
-            <table>
-                <thead>
-                    <tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Cartões</th></tr>
-                </thead>
-                <tbody id="tabela-funcionarios-corpo"></tbody>
-            </table>
+            <div class="tabela-card">
+                <table>
+                    <thead>
+                        <tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Cartões</th></tr>
+                    </thead>
+                    <tbody id="tabela-funcionarios-corpo"></tbody>
+                </table>
+            </div>
         </section>
 
+        <!-- ══ Aba: Cadastrar ══════════════════════════════════════════════ -->
         <section id="tab-cadastrar" class="tab-conteudo">
+            <h1>Cadastrar funcionário</h1>
+            <p class="subtitulo">Digite o UID manualmente ou use um cartão lido na catraca em modo cadastro (aparece abaixo por até 5 minutos).</p>
+
+            <!-- Fila de UIDs pendentes: cartões lidos na catraca quando um admin
+                 entra em modo cadastro (via MQTT a3/cadastros → Node-RED → Flask) -->
             <div id="uid-pendentes-lista" class="uid-pendentes-lista"></div>
 
             <form id="form-cadastro-manual">
                 <div class="campo">
                     <label for="cad-uid">UID do cartão</label>
-                    <input type="text" id="cad-uid" required>
+                    <input type="text" id="cad-uid" placeholder="Ex.: E7 45 D6 19" required>
                 </div>
                 <div class="campo">
                     <label for="cad-nome">Nome completo</label>
@@ -105,6 +199,7 @@
                         <option value="operador">Operador</option>
                         <option value="admin">Admin</option>
                     </select>
+                    <small>Se escolhido, uma conta de login é criada automaticamente para o funcionário.</small>
                 </div>
                 <div class="campo">
                     <label>Áreas permitidas</label>
@@ -119,7 +214,13 @@
             </form>
         </section>
 
+        <!-- ══ Aba: Lugares (áreas) ════════════════════════════════════════ -->
         <section id="tab-areas" class="tab-conteudo">
+            <h1>Lugares</h1>
+            <p class="subtitulo">Áreas físicas controladas por catraca — as permissões dos cartões apontam para estes lugares.</p>
+
+            <!-- Formulário duplo: cria um lugar novo ou edita um existente
+                 (o campo hidden area-id define qual dos dois) -->
             <form id="form-area">
                 <input type="hidden" id="area-id">
                 <div class="campo">
@@ -139,15 +240,21 @@
                 </div>
             </form>
 
-            <table class="secao-tabela">
-                <thead>
-                    <tr><th>Nome</th><th>Descrição</th><th>Ações</th></tr>
-                </thead>
-                <tbody id="tabela-areas-corpo"></tbody>
-            </table>
+            <div class="tabela-card secao-tabela">
+                <table>
+                    <thead>
+                        <tr><th>Nome</th><th>Descrição</th><th>Ações</th></tr>
+                    </thead>
+                    <tbody id="tabela-areas-corpo"></tbody>
+                </table>
+            </div>
         </section>
 
+        <!-- ══ Aba: Usuários do sistema ════════════════════════════════════ -->
         <section id="tab-usuarios" class="tab-conteudo">
+            <h1>Usuários do sistema</h1>
+            <p class="subtitulo">Contas de login do painel — admins gerenciam tudo; operadores só veem o próprio histórico.</p>
+
             <form id="form-usuario">
                 <div class="campo">
                     <label for="usuario-nome">Nome</label>
@@ -173,6 +280,7 @@
                     <select id="usuario-funcionario">
                         <option value="">Nenhum</option>
                     </select>
+                    <small>Vincular a um funcionário permite que ele veja o próprio histórico como operador.</small>
                 </div>
 
                 <div id="usuario-mensagem" class="flash" style="display:none;"></div>
@@ -182,28 +290,33 @@
                 </div>
             </form>
 
-            <table class="secao-tabela">
-                <thead>
-                    <tr><th>Nome</th><th>E-mail</th><th>Nível</th><th>Funcionário</th><th>Ações</th></tr>
-                </thead>
-                <tbody id="tabela-usuarios-corpo"></tbody>
-            </table>
+            <div class="tabela-card secao-tabela">
+                <table>
+                    <thead>
+                        <tr><th>Nome</th><th>E-mail</th><th>Nível</th><th>Funcionário</th><th>Ações</th></tr>
+                    </thead>
+                    <tbody id="tabela-usuarios-corpo"></tbody>
+                </table>
+            </div>
         </section>
     </main>
 
+    <!-- Scripts: auth (sessão/token) → componentes → inicialização -->
     <script src="js/auth.js"></script>
     <script src="js/acessos.js"></script>
+    <script src="js/dashboard.js"></script>
     <script src="js/admin.js"></script>
     <script>
-        exigirLogin();
-        configurarHeaderUsuario();
-        initTabelaAcessos({ mostrarFiltroFuncionario: true });
-        initAbas();
-        initFuncionarios();
-        initCadastroManual();
-        initUidsPendentes();
-        initAreas();
-        initUsuarios();
+        exigirLogin();                                        // redireciona p/ login se não houver token
+        configurarHeaderUsuario();                            // nome do usuário + botão sair
+        initDashboard();                                      // aba Dashboard (tiles + gráfico)
+        initTabelaAcessos({ mostrarFiltroFuncionario: true }); // aba Acessos (componente compartilhado)
+        initAbas();                                           // troca de abas
+        initFuncionarios();                                   // aba Funcionários
+        initCadastroManual();                                 // aba Cadastrar (formulário)
+        initUidsPendentes();                                  // aba Cadastrar (fila de UIDs da catraca)
+        initAreas();                                          // aba Lugares
+        initUsuarios();                                       // aba Usuários
     </script>
 </body>
 </html>
