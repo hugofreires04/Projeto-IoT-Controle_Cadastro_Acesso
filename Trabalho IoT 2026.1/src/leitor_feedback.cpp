@@ -12,26 +12,29 @@
 #include <ArduinoJson.h>
 #include <WebServer.h>
 #include <LittleFS.h>
-#include "AS5600.h"
+// #include "AS5600.h"
 #include "Wire.h"
 
 // Constantes Globais
 String msg = "";
-String placeholder_Uid = "";
 long lastPosition = 0;
-const int relay = 4; // Valor arbitrário
+const int relay = 38; // Valor arbitrário
 unsigned long last_instance = 0;
-bool showing_home = true;
-bool showing_welcome = false;
-bool showing_denied = false;
-bool setup_mode = false;
-bool showing_waiting = false;
-bool showing_setup = false;
-bool passage = false;
-
+enum state_E { 
+  showing_home,
+  checking_bank,
+  setup_mode, // Aviso para castro no sistema
+  awaiting_RFid2, // Aguarda leitura do RFid a ser registrado
+  showing_access,
+  MQTT_process,
+  awaiting_MQTT,
+  enter,
+  leave
+};
+enum state_E state = showing_home;
 
 // AS5600 (entrada/saída)
-AS5600 as5600;
+// AS5600 as5600;
 
 // Servidor Web (cadastro de funcionários)
 WebServer servidor(80);
@@ -57,13 +60,12 @@ String doubleDigit(int num) {
 
 // Funções da Tela
 void home_screen() {
-  showing_home = true;
   screen.fillScreen(GxEPD_WHITE);
 
-  fonts.setFont( u8g2_font_helvB24_te );
+  fonts.setFont( u8g2_font_helvB18_te );
   fonts.setFontMode(1);
   fonts.setCursor(35, 65);
-  fonts.print("Aproxime o Cartão.");
+  fonts.print("Aproxime o Cartão");
 
   // Horário na Tela
   fonts.setFont( u8g2_font_helvR14_te  );
@@ -85,40 +87,34 @@ void home_screen() {
 }
 
 void welcome_screen(String worker_name) {
-  showing_welcome = true;
-  showing_home = false;
   screen.fillScreen(GxEPD_WHITE);
 
   fonts.setFont( u8g2_font_helvB24_te );
   fonts.setFontMode(1);
-  fonts.setCursor(60, 50);
+  fonts.setCursor(40, 60);
   fonts.print("Bem-Vinda(o)!");
 
   fonts.setFont( u8g2_font_helvR18_te  );
   fonts.setFontMode(1);
-  fonts.setCursor(20, 75);
+  fonts.setCursor(70, 95);
   fonts.print(worker_name);
 
-  digitalWrite(relay, LOW);
+  digitalWrite(relay, HIGH);
   screen.display(true);
 }
 
 void access_denied_screen() {
-  showing_denied = true;
-  showing_home = false;
   screen.fillScreen(GxEPD_WHITE);
 
   fonts.setFont( u8g2_font_helvB24_te );
   fonts.setFontMode(1);
-  fonts.setCursor(60, 50);
+  fonts.setCursor(28, 70);
   fonts.print("Acesso Negado");
 
   screen.display(true);
 }
 
 void awaiting_screen() {
-  showing_waiting = true;
-  showing_home = false;
   screen.fillScreen(GxEPD_WHITE);
 
   fonts.setFont( u8g2_font_helvB10_te );
@@ -129,11 +125,27 @@ void awaiting_screen() {
   screen.display(true);
 }
 
+void MQTT_screen() {
+  screen.fillScreen(GxEPD_WHITE);
+
+  fonts.setFont( u8g2_font_helvB18_te );
+  fonts.setFontMode(1);
+  fonts.setCursor(20, 60);
+  fonts.print("Aguardando resposta");
+  fonts.setCursor(80, 95);
+  fonts.print("do sistema");
+  
+  screen.display(true);
+}
+
 // Exibe confirmação no display e disponibiliza o UID na página de cadastro
 void setup_screen_adminControl(String Uid) {
-  showing_setup = true;
-  showing_home = false;
-  pending_uid = Uid;
+  JsonDocument idMessage;
+  String jsonString;
+  idMessage["uid"] = Uid;
+  serializeJson(idMessage, jsonString);
+  mqtt.publish("a3/cadastros", jsonString);
+
   screen.fillScreen(GxEPD_WHITE);
   
   fonts.setFont( u8g2_font_helvB24_te );
@@ -144,6 +156,8 @@ void setup_screen_adminControl(String Uid) {
   fonts.setFontMode(1);
   fonts.setCursor(43, 95);
   fonts.print("Complete o cadastro no sistema.");
+
+  screen.display(true);
 }
 
 // Funções MMQTT
@@ -151,38 +165,45 @@ void reconectarMQTT() {
   if (!mqtt.connected()) {
     Serial.print("Conectando MQTT...");
     while(!mqtt.connected()) {
+      Serial.println("Não conectado ainda");
       mqtt.connect("esp32_teste", "aula", "zowmad-tavQez");
       Serial.print(".");
       delay(1000);
     }
     Serial.println(" conectado!");
 
-    mqtt.subscribe("A3/catraca/resposta");
+    mqtt.subscribe("a3/catraca/resposta");
   }
 }
 
 void recebeuMensagem(String topic, String content) {
   Serial.println(topic + ": " + content);
 
-  if (topic == "A3/catraca/resposta") {
+  if (topic == "a3/catraca/resposta") {
     JsonDocument access_answer;
     deserializeJson(access_answer, content);
-    String worker_permission = access_answer["acesso"];
-    String worker_admin = access_answer["cargo"];
+    bool worker_permission = access_answer["autorizado"];
+    bool worker_admin = access_answer["isAdmin"];
     String worker_name = access_answer["nome"];
 
-    if (worker_permission) {
-      // Desativa solenoid
-      welcome_screen(worker_name);
-      passage = true;
-      lastPosition = as5600.getCumulativePosition();
+    if (worker_admin) {
+      awaiting_screen();
+      state = awaiting_RFid2; // Para ler segundo RFid
+      last_instance = millis();
     }
     else {
-      access_denied_screen();
-    }
-    if (worker_admin == "administrador") {
-      awaiting_screen();
-      setup_mode = true;
+      if (worker_permission) {
+        welcome_screen(worker_name);
+        state = showing_access;
+        // passage = true;
+        // lastPosition = as5600.getCumulativePosition();
+        last_instance = millis();
+      }
+      else {
+        access_denied_screen();
+        state = showing_access;
+        last_instance = millis();
+      }
     }
   }
 }
@@ -206,73 +227,43 @@ String lerUID() {
 // Funções Wi-Fi
 void reconectarWiFi() {
   if (WiFi.status() != WL_CONNECTED) {
-    WiFi.begin("LabIoT", "4n1m4l5@))!!");
+    WiFi.begin("LabIoT", "4n1m4l5@))!!"); // WiFi IoT    
     Serial.print("Conectando ao WiFi...");
     while (WiFi.status() != WL_CONNECTED) {
       Serial.print(".");
       delay(1000);
     }
     Serial.print("conectado!\nEndereço IP: ");
+    // rgbLedWrite(RGB_BUILTIN, 0, 255, 0);
     Serial.println(WiFi.localIP());
   }
-}
-
-// Configura as rotas do servidor web
-void iniciarWebServer() {
-  // Serve a página de cadastro (arquivo em /data/cadastro_funcionario.html)
-  servidor.on("/cadastro", HTTP_GET, []() {
-    File f = LittleFS.open("/cadastro_funcionario.html", "r");
-    if (!f) {
-      servidor.send(404, "text/plain", "Arquivo nao encontrado");
-      return;
-    }
-    servidor.streamFile(f, "text/html");
-    f.close();
-  });
-
-  // A página faz polling neste endpoint para receber o UID do cartão escaneado.
-  // Retorna o UID pendente e limpa após a primeira leitura.
-  servidor.on("/uid", HTTP_GET, []() {
-    String json = "{\"uid\":\"" + pending_uid + "\"}";
-    pending_uid = "";
-    servidor.send(200, "application/json", json);
-  });
-
-  // Endpoints de simulação — úteis para testar sem hardware RFID
-  servidor.on("/modo-admin", HTTP_GET, []() {
-    setup_mode = true;
-    servidor.send(200, "text/plain", "setup_mode ativado. Chame /simular?uid=XX agora.");
-    Serial.println("[SIM] setup_mode = true (via web)");
-  });
-
-  servidor.on("/simular", HTTP_GET, []() {
-    String uid = servidor.hasArg("uid") ? servidor.arg("uid") : "AA BB CC DD";
-    uid.toUpperCase();
-    pending_uid = uid;
-    servidor.send(200, "text/plain", "UID simulado: " + uid);
-    Serial.println("[SIM] pending_uid = " + uid);
-  });
-
-  servidor.begin();
-  Serial.print("Servidor HTTP em http://");
-  Serial.print(WiFi.localIP());
-  Serial.println("/cadastro");
-}
+} 
 
 // Setup e Loop
 void setup() {
   Serial.begin(115200); delay(500);
   reconectarWiFi();
   conexaoSegura.setCACert(certificado1);
-  Wire.begin();
+  mqtt.begin("mqtt.janks.dev.br", 8883, conexaoSegura); 
 
-  // LittleFS
-  if (!LittleFS.begin()) {
-    Serial.println("LittleFS falhou!");
-    while (true) {};
-  }
+  // conexaoSegura.setInsecure();
+  // mqtt.begin("mqtt.janks.dev.br", 1883, conexaoSegura); 
+  mqtt.setTimeout(2000);
+  mqtt.onMessage(recebeuMensagem); 
+  reconectarMQTT();
+  
+  // Inicialização da Tela e das Fontes
+  screen.init();
+  screen.setRotation(3);
+  screen.fillScreen(GxEPD_WHITE);
 
-  iniciarWebServer();
+  fonts.begin(screen);
+  fonts.setForegroundColor(GxEPD_BLACK);
+
+  state = showing_home;
+  last_instance = millis() + 60000;
+
+  // iniciarWebServer();
 
   // Calibração do Horário
   configTime(-3 * 3600, 0, "pool.ntp.org"); // Horário de Brasília
@@ -283,21 +274,17 @@ void setup() {
   SPI.begin();
   rfid.PCD_Init();
 
-  // Inicialização da Tela e das Fontes
-  screen.init();
-  screen.setRotation(3);
-  screen.fillScreen(GxEPD_WHITE);
-
-  fonts.begin(screen);
-  fonts.setForegroundColor(GxEPD_BLACK);
-
   // Inicializando componentes no esp32
   pinMode(relay, OUTPUT);
+  pinMode(10, OUTPUT);
+  pinMode(14, OUTPUT);
+  pinMode(15, OUTPUT);
 
-  // Inicialização do AS5600
-  as5600.begin(); // Pino default do I2C GPIO 21 e 22
-  Serial.println("as5600 conectada:" + String(as5600.isConnected()));
-  as5600.resetCumulativePosition();
+  // // Inicialização do AS5600
+  // Wire.begin(21, 47);
+  // as5600.begin(); // Pino default do I2C GPIO 21 e 22
+  // Serial.println("as5600 conectada:" + String(as5600.isConnected()));
+  // as5600.resetCumulativePosition();
 }
 
 void loop() {
@@ -305,83 +292,91 @@ void loop() {
   reconectarMQTT();
   servidor.handleClient();
 
-  // Verificação e limitação do tempo telas diferentes
-  if (showing_home && (millis() - last_instance >= 60000)) {
-    home_screen();
-  }
-
-  if (showing_welcome && (millis() - last_instance >= 7000)) {
-    showing_welcome = false;
-    if (passage){ passage = false; }
-    home_screen();
-    digitalWrite(relay, HIGH);
-  }
-
-  if (showing_denied && (millis() - last_instance >= 3000)) {
-    showing_denied = false;
-    home_screen();
-  }
-
-  if (showing_waiting && (millis() - last_instance >= 7000)) {
-    showing_waiting = false;
-    home_screen();
-  }
-
-  if (showing_setup && (millis() - last_instance >= 30000)) {
-    showing_setup = false;
-    home_screen();
-  }
-
-  // Simulação via serial: 1ª linha ativa setup_mode, 2ª define o UID pendente
-  if (Serial.available()) {
-    String input = Serial.readStringUntil('\n');
-    input.trim();
-    input.toUpperCase();
-    if (!input.isEmpty()) {
-      if (!setup_mode) {
-        setup_mode = true;
-        Serial.println("[SIM] setup_mode ativado. Digite o UID do novo cartao:");
-      } else {
-        setup_screen_adminControl(input);
-        Serial.println("[SIM] pending_uid = " + input + " | Acesse /cadastro no browser");
-      }
-    }
-  }
-
   // Leitura do RFid apenas se está na 'Home Screen'
-  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial() && showing_home) {
-    String id = lerUID();
-    placeholder_Uid = id;
-    Serial.println("UID da tag: " + id);
-    mqtt.publish("A3/catraca/acesso", id);
-    last_instance = millis();
+  if (state == showing_home || state == awaiting_RFid2) {
+    if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
+      String id = lerUID();
+      Serial.println("UID da tag: " + id);
+      JsonDocument idMessage;
+      String jsonString;
+      idMessage["uid"] = id;
+      serializeJson(idMessage, jsonString);
+      last_instance = millis();
+    
+      if (state == showing_home) {
+        MQTT_screen();
+        mqtt.publish("a3/catraca/entrada", jsonString);
+        state = awaiting_MQTT;
+      }
+      else {
+        setup_screen_adminControl(id);
+        state = setup_mode;
+      }
+      
 
-    if (setup_mode) {
-      setup_screen_adminControl(id);
-      setup_mode = false;
+      rfid.PICC_HaltA(); // interrompe leitura (não fica repetindo)
+      rfid.PCD_StopCrypto1();
     }
+  }
 
-    rfid.PICC_HaltA(); // interrompe leitura (não fica repetindo)
-    rfid.PCD_StopCrypto1();
+
+  // Verificação e limitação do tempo telas diferentes
+  if (state == showing_home) {
+    // Atualiza a tela a cada minuto
+    if (millis() - last_instance >= 60000) {
+      home_screen();
+      last_instance = millis();
+    }
+  }
+  else if (state == awaiting_MQTT) {
+    // Deu timeout no mqtt espera de 30s
+    if (millis() - last_instance >= 15000) {
+      home_screen();
+      state = showing_home;
+      last_instance = millis(); 
+    }
+  }
+  else if (state == showing_access) {
+    // Tela de acesso Permitido/Negado mostra 5s e volta para home
+    if (millis() - last_instance >= 5000) {
+      digitalWrite(relay, LOW);
+      home_screen();
+      state = showing_home;
+      last_instance = millis(); 
+    }      
+  }
+  else if (state == awaiting_RFid2) {
+    if (millis() - last_instance >= 5000) {
+      home_screen();
+      state = showing_home;
+      last_instance = millis(); 
+    }      
+  }
+  else if (state == setup_mode) {
+    if (millis() - last_instance >= 5000) {
+      home_screen();
+      state = showing_home;
+      last_instance = millis(); 
+    }      
   }
 
   // Cálculo para ver se a catraca girou no sentido horário ou ante-horário
   // Entrada ou saída
-  if (passage) {
-    long current_position = as5600.getCumulativePosition();
-    long delta = current_position - lastPosition;
-    if (delta > 0) { // Entrada
-      mqtt.publish("A3/catraca/entrada", placeholder_Uid);
-    }
-    if (delta < 0) { // Saída
-      mqtt.publish("A3/catraca/saída", placeholder_Uid);
-    }
-    // Se delta == 0, não houve nenhuma mudança na posição da catraca
-    // Mas isso não é possível a não ser que alguém leu o cartão
-    // e não entrou em menos de 7 segundos.
-    lastPosition = current_position;
-    passage = false;
-    placeholder_Uid = "";
-  }
+  // if (passage) {
+  //   long current_position = as5600.getCumulativePosition();
+  //   long delta = current_position - lastPosition;
+  //   if (delta > 0) { // Entrada
+  //     mqtt.publish("a3/catraca/entrada", placeholder_Uid);
+  //   }
+  //   if (delta < 0) { // Saída
+  //     mqtt.publish("a3/catraca/saída", placeholder_Uid);
+  //   }
+  //   // Se delta == 0, não houve nenhuma mudança na posição da catraca
+  //   // Mas isso não é possível a não ser que alguém leu o cartão
+  //   // e não entrou em menos de 7 segundos.
+  //   lastPosition = current_position;
+  //   passage = false;
+  //   placeholder_Uid = "";
+  // }
   mqtt.loop();
 }
