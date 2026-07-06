@@ -254,7 +254,7 @@ void setup() {
   
   // Inicialização da Tela e das Fontes
   screen.init();
-  screen.setRotation(3);
+  screen.setRotation(1);
   screen.fillScreen(GxEPD_WHITE);
 
   fonts.begin(screen);
