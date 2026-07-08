@@ -67,7 +67,7 @@ MQTTClient mqtt(1024);
 
 bool wifiOK = false;
 
-unsigned long ultimoWiFi = 0;
+// unsigned long ultimoWiFi = 0;
 unsigned long ultimoMQTT = 0;
 static unsigned long ultimoRSSI = 0;
 
@@ -75,65 +75,6 @@ const unsigned long WIFI_RETRY = 10000;
 const unsigned long MQTT_RETRY = 5000;
 
 unsigned long send_msg_MQTT = 0;
-
-// Reset reason
-
-const char* resetReason(esp_reset_reason_t reason)
-{
-    switch (reason)
-    {
-        case ESP_RST_UNKNOWN:   return "UNKNOWN";
-        case ESP_RST_POWERON:   return "POWERON";
-        case ESP_RST_EXT:       return "EXTERNAL";
-        case ESP_RST_SW:        return "SOFTWARE";
-        case ESP_RST_PANIC:     return "PANIC";
-        case ESP_RST_INT_WDT:   return "INT_WDT";
-        case ESP_RST_TASK_WDT:  return "TASK_WDT";
-        case ESP_RST_WDT:       return "OTHER_WDT";
-        case ESP_RST_DEEPSLEEP: return "DEEPSLEEP";
-        case ESP_RST_BROWNOUT:  return "BROWNOUT";
-        case ESP_RST_SDIO:      return "SDIO";
-        default:                return "INVALID";
-    }
-}
-
-// MQTT Callback
-void mqttCallback(String &topic, String &payload)
-{
-    Serial.print("[MQTT] ");
-    Serial.print(topic);
-    Serial.print(" : ");
-    Serial.println(payload);
-}
-
-// WiFi Events
-void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
-{
-    switch (event)
-    {
-        case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-            Serial.println("[WiFi] AP conectado");
-            break;
-
-        case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-            wifiOK = true;
-            Serial.println("[WiFi] IP obtido");
-            Serial.print("IP: ");
-            Serial.println(WiFi.localIP());
-            break;
-
-        case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-            wifiOK = false;
-            Serial.printf("[WiFi] Desconectado. Motivo = %d\n", info.wifi_sta_disconnected.reason);
-            mqtt.disconnect();
-            tls.stop();
-            break;
-
-        default:
-            break;
-    }
-}
-
 
 // Funções auxiliares
 String doubleDigit(int num) {
@@ -243,44 +184,39 @@ void setup_screen_adminControl(String Uid) {
 }
 
 // Funções MMQTT
-void conectarMQTT()
-{
-    if (!wifiOK)
-        return;
-
-    if (mqtt.connected())
-        return;
-
-    if (millis() - ultimoMQTT < MQTT_RETRY)
-        return;
-
-    ultimoMQTT = millis();
-
-    Serial.println("[MQTT] Conectando...");
-    Serial.printf("Heap livre: %u\n", ESP.getFreeHeap());
-
-    bool ok = mqtt.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD);
-
-    if (ok) {
-        Serial.println("[MQTT] Conectado");
-
-        mqtt.subscribe("topico1");
-        mqtt.subscribe("topico2/+/parametro");
-
-        mqtt.publish("status", "online");
-    } else {
-        Serial.println("[MQTT] Falha ao conectar");
-    }
-}
+// void conectarMQTT()
+// {
+//     if (!wifiOK)
+//         return;
+//     if (mqtt.connected())
+//         return;
+//     if (millis() - ultimoMQTT < MQTT_RETRY)
+//         return;
+//     ultimoMQTT = millis();
+//     Serial.println("[MQTT] Conectando...");
+//     Serial.printf("Heap livre: %u\n", ESP.getFreeHeap());
+//     bool ok = mqtt.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD);
+//     if (ok) {
+//         Serial.println("[MQTT] Conectado");
+//         mqtt.subscribe("topico1");
+//         mqtt.subscribe("topico2/+/parametro");
+//         mqtt.publish("status", "online");
+//     } else {
+//         Serial.println("[MQTT] Falha ao conectar");
+//     }
+// }
 
 void reconectarMQTT() {
-  if (WiFi.status() == WL_CONNECTED) return;
-
+  if (WiFi.status() != WL_CONNECTED) 
+  {
+    Serial.println("Falha no WiFi");
+    return;
+  }
   if (mqtt.connected())
-      return;
+    return;
 
   if (millis() - ultimoMQTT < MQTT_RETRY)
-      return;
+    return;
 
   ultimoMQTT = millis();
 
@@ -290,28 +226,14 @@ void reconectarMQTT() {
   bool ok = mqtt.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD);
 
   if (ok) {
-      Serial.println("[MQTT] Conectado");
+    Serial.println("[MQTT] Conectado");
 
-      mqtt.subscribe("topico1");
-      mqtt.subscribe("topico2/+/parametro");
+    mqtt.subscribe("a3/catraca/resposta");
 
-      mqtt.publish("status", "online");
+    mqtt.publish("status", "online");
   } else {
-      Serial.println("[MQTT] Falha ao conectar");
+    Serial.println("[MQTT] Falha ao conectar");
   }
-
-
-  // if (!mqtt.connected()) {
-  //   Serial.print("Conectando MQTT...");
-  //   while(!mqtt.connected()) {
-  //     Serial.println("Não conectado ainda");
-  //     mqtt.connect("esp32_teste", "aula", "zowmad-tavQez");
-  //     Serial.print(".");
-  //     delay(1000);
-  //   }
-  //   Serial.println(" conectado!");
-  //   mqtt.subscribe("a3/catraca/resposta");
-  // }
 }
 
 void recebeuMensagem(String topic, String content) {
@@ -363,27 +285,26 @@ String lerUID() {
 }
 
 // Funções Wi-Fi
-
 // void conectarWiFi()
 // {
-//     if (wifiOK) {
-//         if (millis() - ultimoRSSI > 5000) {
-//             ultimoRSSI = millis();
-//             int rssi = WiFi.RSSI();
-//             if (rssi < -85) {
-//                 Serial.printf("[WiFi] ATENÇÃO: sinal fraco (%d dBm)\n", rssi);
-//             }
-//         }
-//         return;
+//   if (wifiOK) {
+//     if (millis() - ultimoRSSI > 5000) {
+//       ultimoRSSI = millis();
+//       int rssi = WiFi.RSSI();
+//       if (rssi < -85) {
+//           Serial.printf("[WiFi] ATENÇÃO: sinal fraco (%d dBm)\n", rssi);
+//       }
 //     }
-//     if (millis() - ultimoWiFi < WIFI_RETRY) {
-//         return;
-//     }
-//     ultimoWiFi = millis();
-//     Serial.println("[WiFi] Conectando...");
-//     WiFi.disconnect(true);
-//     delay(100);
-//     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+//     return;
+//   }
+//   if (millis() - ultimoWiFi < WIFI_RETRY) {
+//     return;
+//   }
+//   ultimoWiFi = millis();
+//   Serial.println("[WiFi] Conectando...");
+//   WiFi.disconnect(true);
+//   delay(100);
+//   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 // }
 void reconectarWiFi() {
   if (WiFi.status() != WL_CONNECTED) {
@@ -404,20 +325,18 @@ void setup() {
   Serial.begin(115200); delay(1000);
   
   esp_reset_reason_t reason = esp_reset_reason();
-  Serial.printf("Reset reason: %s (%d)\n", resetReason(reason), reason);
 
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
   WiFi.persistent(false);
-  WiFi.onEvent(onWiFiEvent);
 
   tls.setCACert(certificado1);
   tls.setTimeout(5000);
 
   mqtt.begin(MQTT_HOST, MQTT_PORT, tls);
-  mqtt.onMessage(mqttCallback);
+  mqtt.onMessage(recebeuMensagem); 
   mqtt.setKeepAlive(10);
-  mqtt.setTimeout(5000);
+  mqtt.setTimeout(1000);
 
   reconectarWiFi();
 
@@ -425,7 +344,7 @@ void setup() {
   // mqtt.begin("mqtt.janks.dev.br", 8883, conexaoSegura); 
 
   // mqtt.setTimeout(2000);
-  // mqtt.onMessage(recebeuMensagem); 
+  
   // reconectarMQTT();
   
   // Inicialização da Tela e das Fontes
@@ -463,7 +382,7 @@ void setup() {
 
 void loop() {
   reconectarWiFi();
-  conectarMQTT();
+  reconectarMQTT();
   servidor.handleClient();
 
   if (mqtt.connected()) {
