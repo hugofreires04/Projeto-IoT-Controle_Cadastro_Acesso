@@ -15,9 +15,8 @@
 // #include "AS5600.h"
 #include "Wire.h"
 #include <esp_system.h>
-
-#define WIFI_SSID       "LabIoT"
-#define WIFI_PASSWORD   "4n1m4l5@))!!"
+#include <uri/UriBraces.h>
+#include <Preferences.h>
 
 #define MQTT_HOST       "mqtt.janks.dev.br"
 #define MQTT_PORT       8883
@@ -43,6 +42,7 @@ enum state_E {
   leave
 };
 enum state_E state = showing_home;
+Preferences preferencias;
 
 // AS5600 (entrada/saída)
 // AS5600 as5600;
@@ -184,28 +184,6 @@ void setup_screen_adminControl(String Uid) {
 }
 
 // Funções MMQTT
-// void conectarMQTT()
-// {
-//     if (!wifiOK)
-//         return;
-//     if (mqtt.connected())
-//         return;
-//     if (millis() - ultimoMQTT < MQTT_RETRY)
-//         return;
-//     ultimoMQTT = millis();
-//     Serial.println("[MQTT] Conectando...");
-//     Serial.printf("Heap livre: %u\n", ESP.getFreeHeap());
-//     bool ok = mqtt.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD);
-//     if (ok) {
-//         Serial.println("[MQTT] Conectado");
-//         mqtt.subscribe("topico1");
-//         mqtt.subscribe("topico2/+/parametro");
-//         mqtt.publish("status", "online");
-//     } else {
-//         Serial.println("[MQTT] Falha ao conectar");
-//     }
-// }
-
 void reconectarMQTT() {
   if (WiFi.status() != WL_CONNECTED) 
   {
@@ -223,13 +201,18 @@ void reconectarMQTT() {
   Serial.println("[MQTT] Conectando...");
   Serial.printf("Heap livre: %u\n", ESP.getFreeHeap());
 
-  bool ok = mqtt.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD);
+  String id = preferencias.getString("mqttID", "");
+  String login = preferencias.getString("mqttLogin", "");
+  String senha = preferencias.getString("mqttSenha", "");
+
+
+
+  bool ok = mqtt.connect(id.c_str(), login.c_str(), senha.c_str());
 
   if (ok) {
     Serial.println("[MQTT] Conectado");
-
-    mqtt.subscribe("a3/catraca/resposta");
-
+    String topic = preferencias.getString("mqttTopic", "");
+    mqtt.subscribe(topic.c_str());
     mqtt.publish("status", "online");
   } else {
     Serial.println("[MQTT] Falha ao conectar");
@@ -239,7 +222,7 @@ void reconectarMQTT() {
 void recebeuMensagem(String topic, String content) {
   Serial.println(topic + ": " + content);
 
-  if (topic == "a3/catraca/resposta") {
+  if (topic == preferencias.getString("mqttTopic", "")) {
     JsonDocument access_answer;
     deserializeJson(access_answer, content);
     bool worker_permission = access_answer["autorizado"];
@@ -285,46 +268,102 @@ String lerUID() {
 }
 
 // Funções Wi-Fi
-// void conectarWiFi()
-// {
-//   if (wifiOK) {
-//     if (millis() - ultimoRSSI > 5000) {
-//       ultimoRSSI = millis();
-//       int rssi = WiFi.RSSI();
-//       if (rssi < -85) {
-//           Serial.printf("[WiFi] ATENÇÃO: sinal fraco (%d dBm)\n", rssi);
-//       }
-//     }
-//     return;
-//   }
-//   if (millis() - ultimoWiFi < WIFI_RETRY) {
-//     return;
-//   }
-//   ultimoWiFi = millis();
-//   Serial.println("[WiFi] Conectando...");
-//   WiFi.disconnect(true);
-//   delay(100);
-//   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-// }
 void reconectarWiFi() {
   if (WiFi.status() != WL_CONNECTED) {
-    WiFi.begin("LabIoT", "4n1m4l5@))!!"); // WiFi IoT    
+    String SSID = preferencias.getString("wifi", "");
+    String senha = preferencias.getString("senha", "");
+
+    Serial.println("SSID = " + SSID);
+    Serial.println("Pass = " + senha);
+
+    WiFi.begin(SSID.c_str(), senha.c_str());    
     Serial.print("Conectando ao WiFi...");
-    while (WiFi.status() != WL_CONNECTED) {
+    int tentativas = 0;
+    while (WiFi.status() != WL_CONNECTED && tentativas < 10) {
       Serial.print(".");
       delay(1000);
+      tentativas++;
     }
-    Serial.print("conectado!\nEndereço IP: ");
-    // rgbLedWrite(RGB_BUILTIN, 0, 255, 0);
-    Serial.println(WiFi.localIP());
+
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.print("conectado!\nEndereço IP: ");
+      Serial.println(WiFi.localIP());
+    } else {
+      Serial.println("\nFalha ao conectar.");
+      WiFi.softAP("ESP32-CONFIG");
+      Serial.print("IP: AP ");
+      Serial.println(WiFi.softAPIP());
+    }
   }
-} 
+}
+
+// Servidor ESP Ian
+void inicio() {
+  File arq = LittleFS.open("/inicio.html", "r");
+  if (!arq) {
+    servidor.send(404, "text/plain", "Arquivo nao encontrado");
+    return;
+  }
+
+  String html = arq.readString();
+  arq.close();
+
+  html.replace("{{wifi}}", preferencias.getString("wifi", ""));
+  html.replace("{{senha}}", preferencias.getString("senha", ""));
+  html.replace("{{mqttHost}}", preferencias.getString("mqttHost", ""));
+  html.replace("{{mqttPort}}", String(preferencias.getInt("mqttPort", 1883)));
+  html.replace("{{mqttTopic}}", preferencias.getString("mqttTopic", ""));
+  html.replace("{{mqttID}}", preferencias.getString("mqttID", ""));
+  html.replace("{{mqttLogin}}", preferencias.getString("mqttLogin", ""));
+  html.replace("{{mqttSenha}}", preferencias.getString("mqttSenha", ""));
+
+  servidor.send(200, "text/html", html);
+}
+
+void salvarConfiguracao() {
+  String wifi = servidor.arg("wifi");
+  String senha = servidor.arg("senha");
+
+  String mqttHost = servidor.arg("mqttHost");
+  int mqttPort = servidor.arg("mqttPort").toInt();
+  String mqttTopic = servidor.arg("mqttTopic");
+
+  String mqttID = servidor.arg("mqttID");
+  String mqttLogin = servidor.arg("mqttLogin");
+  String mqttSenha = servidor.arg("mqttSenha");
+
+  preferencias.putString("wifi", wifi);
+  preferencias.putString("senha", senha);
+
+  preferencias.putString("mqttHost", mqttHost);
+  preferencias.putInt("mqttPort", mqttPort); //verificar int/long possivel string...
+  preferencias.putString("mqttTopic", mqttTopic);
+
+  preferencias.putString("mqttLogin", mqttLogin);
+  preferencias.putString("mqttID", mqttID);
+  preferencias.putString("mqttSenha", mqttSenha);
+
+  Serial.println("Configurações salvas.");
+  servidor.send(200, "text/plain", "Configuracao salva. Reiniciando...");
+  delay(1000);
+  ESP.restart();
+}
 
 // Setup e Loop
 void setup() {
   Serial.begin(115200); delay(1000);
   
   esp_reset_reason_t reason = esp_reset_reason();
+
+  if (!LittleFS.begin()) {
+    Serial.println("LittleFS Falhou");
+    while (true);
+  }
+  preferencias.begin("ajustesUsuario", false);
+   String mqttHost = preferencias.getString("mqttHost", "");
+  Serial.println("MQTTHOST = " + String(mqttHost));
+  int mqttPort = preferencias.getInt("mqttPort", 1883);
+  Serial.println("MQTTPORT = " + String(mqttPort));
 
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
@@ -333,19 +372,14 @@ void setup() {
   tls.setCACert(certificado1);
   tls.setTimeout(5000);
 
-  mqtt.begin(MQTT_HOST, MQTT_PORT, tls);
+ 
+
+  mqtt.begin(mqttHost.c_str(), mqttPort, tls);
   mqtt.onMessage(recebeuMensagem); 
   mqtt.setKeepAlive(10);
   mqtt.setTimeout(1000);
 
   reconectarWiFi();
-
-  // conexaoSegura.setCACert(certificado1);
-  // mqtt.begin("mqtt.janks.dev.br", 8883, conexaoSegura); 
-
-  // mqtt.setTimeout(2000);
-  
-  // reconectarMQTT();
   
   // Inicialização da Tela e das Fontes
   screen.init();
@@ -358,10 +392,13 @@ void setup() {
   state = showing_home;
   last_instance = millis() + 60000;
 
-  // Calibração do Horário
-  configTime(-3 * 3600, 0, "pool.ntp.org"); // Horário de Brasília
-  struct tm timeinfo;
-  while (!getLocalTime(&timeinfo)) delay(500); // aguarda sincronização
+  if (WiFi.getMode() == WIFI_STA) {
+    // Calibração do Horário
+    configTime(-3 * 3600, 0, "pool.ntp.org"); // Horário de Brasília
+    struct tm timeinfo;
+    while (!getLocalTime(&timeinfo)) delay(500); // aguarda sincronização
+    
+  }
 
   // Inicialização da leitura do RFid
   SPI.begin();
@@ -373,6 +410,11 @@ void setup() {
   pinMode(14, OUTPUT);
   pinMode(15, OUTPUT);
 
+  // Inicializando servidores
+  servidor.on("/", HTTP_GET, inicio);
+  servidor.on("/salvar", HTTP_POST, salvarConfiguracao);
+  servidor.begin();
+
   // // Inicialização do AS5600
   // Wire.begin(21, 47);
   // as5600.begin(); // Pino default do I2C GPIO 21 e 22
@@ -381,8 +423,10 @@ void setup() {
 }
 
 void loop() {
-  reconectarWiFi();
-  reconectarMQTT();
+  if (WiFi.getMode() == WIFI_STA) {
+    reconectarWiFi();
+    reconectarMQTT();
+  }
   servidor.handleClient();
 
   if (mqtt.connected()) {
