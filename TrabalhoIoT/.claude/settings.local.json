@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Gabriel\\\\Documents\\\\PlatformIO\\\\Projects\\\\Trabalho IoT 2026.1\" -Recurse -File | Where-Object { $_.Extension -in @\\('.cpp', '.h', '.c', '.hpp', '.ino'\\) } | Select-Object FullName)"
+    ]
+  }
+}

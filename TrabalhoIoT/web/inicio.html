@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuração do ESP32</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        h2 {
+            margin-top: 25px;
+            color: #1976d2;
+        }
+
+        label {
+            display: block;
+            margin-top: 12px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            margin-top: 20px;
+            width: 100%;
+            padding: 10px;
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Configurações</h1>
+
+    <form action="/salvar" method="POST">
+
+        <h2>Wi-Fi</h2>
+
+        <label for="wifi">SSID Wi-Fi</label>
+        <input type="text" id="wifi" name="wifi" value="{{wifi}}" required>
+
+        <label for="senha">Senha Wi-Fi</label>
+        <input type="password" id="senha" name="senha" value="{{senha}}">
+        <!--senha pode ser ocultada por questões de segurança...-->
+
+        <h2>MQTT</h2>
+
+        <label for="mqttHost">Servidor MQTT</label>
+        <input type="text"
+            id="mqttHost"
+            name="mqttHost"
+            value="{{mqttHost}}"
+            required>
+
+        <label for="mqttPort">Porta MQTT</label>
+        <input type="number"
+            id="mqttPort"
+            name="mqttPort"
+            value="{{mqttPort}}"
+            required>
+
+        <label for="mqttTopic">Tópico MQTT</label>
+        <input type="text"
+            id="mqttTopic"
+            name="mqttTopic"
+            value="{{mqttTopic}}"
+            required>
+               
+        <label for="mqttID">Usuário (ID) MQTT</label>
+        <input type="text"
+            id="mqttID"
+            name="mqttID"
+            value="{{mqttID}}">
+
+        <label for="mqttLogin">Login MQTT</label>
+        <input type="text"
+            id="mqttLogin"
+            name="mqttLogin"
+            value="{{mqttLogin}}">
+ 
+        <label for="mqttSenha">Senha MQTT</label>
+        <input type="password"
+            id="mqttSenha"
+            name="mqttSenha"
+            value="{{mqttSenha}}">
+      <!--senha pode ser ocultada por questões de segurança...-->
+         
+              
+        <button type="submit">
+            Salvar Configurações
+        </button>
+
+    </form>
+
+</body>
+</html>

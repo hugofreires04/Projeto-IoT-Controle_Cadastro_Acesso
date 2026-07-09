@@ -1,0 +1,16 @@
+WiFi:
+ - Rede: LabIoT
+ - Senha: 4n1m4l5@))!!
+
+MQTT:
+ - Endereço: mqtt.janks.dev.br
+ - Porta: 8883
+ - Login: aula
+ - Senha: zowmad-tavQez
+
+PostgreSQL
+ - Endereço: postgresql.janks.dev.br
+ - Porta: 5432
+ - Login: iot
+ - Senha: pepcon-garton
+ - Database: supermercado
