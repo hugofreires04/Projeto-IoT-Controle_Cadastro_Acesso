@@ -201,7 +201,7 @@ Se `isAdmin` vier `true`, o firmware deve entrar em modo cadastro e publicar a p
 { "uid": "AA BB CC DD" }
 ```
 
-(Vídeo informativo do projeto)[https://youtu.be/a1F-dKc_puc]
+[Vídeo informativo do projeto](https://youtu.be/a1F-dKc_puc)
 
 
 
