@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<!--
+  login.html — Página de entrada do painel
+  Projeto IoT — Controle de Cadastro e Acesso via RFID (ENG4051 / PUC-Rio)
+
+  Fluxo:
+    1. Se já existe token válido no localStorage, redireciona direto pro painel.
+    2. Senão, POST /api/login com e-mail + senha → recebe token de sessão.
+    3. Admin vai para admin.html; operador vai para operador.html.
+-->
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Controle de Acesso RFID</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="pagina-login">
+    <main class="login-container">
+        <form id="form-login" class="login-box">
+            <!-- Ícone: cartão RFID com ondas de rádio (mesma identidade do painel) -->
+            <div class="login-icone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="2" y="5" width="15" height="11" rx="2"/>
+                    <circle cx="7.5" cy="10.5" r="1.6"/>
+                    <path d="M18.5 8.5a5 5 0 0 1 0 4"/>
+                    <path d="M21 6.5a8.5 8.5 0 0 1 0 8"/>
+                </svg>
+            </div>
+
+            <h1>Controle de Acesso RFID</h1>
+            <p class="login-subtitulo">Entre para gerenciar cadastros e acessos</p>
+
+            <div class="campo">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" name="email" required autofocus>
+            </div>
+
+            <div class="campo">
+                <label for="senha">Senha</label>
+                <input type="password" id="senha" name="senha" required>
+            </div>
+
+            <div id="mensagem-erro" class="flash flash-erro" style="display:none;"></div>
+
+            <div class="acoes">
+                <button type="submit">Entrar</button>
+            </div>
+        </form>
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script>
+        const mensagemErro = document.getElementById("mensagem-erro");
+
+        function mostrarErro(texto) {
+            mensagemErro.textContent = texto;
+            mensagemErro.style.display = "block";
+        }
+
+        // Se o usuário já tem uma sessão válida salva, pula a tela de login.
+        // A validação é feita chamando /api/me — se o token expirou, limpa tudo.
+        async function tentarSessaoExistente() {
+            if (!obterToken()) return;
+            try {
+                const resposta = await fetch("/api/me", { headers: { Authorization: "Bearer " + obterToken() } });
+                if (!resposta.ok) { limparSessao(); return; }
+                redirecionarPorNivel(obterNivel());
+            } catch {
+                limparSessao();
+            }
+        }
+
+        // Cada nível de acesso tem seu painel: admin vê tudo, operador só o próprio histórico.
+        function redirecionarPorNivel(nivel) {
+            window.location.href = nivel === "admin" ? "/static/admin.html" : "/static/operador.html";
+        }
+
+        document.getElementById("form-login").addEventListener("submit", async (evento) => {
+            evento.preventDefault();
+            mensagemErro.style.display = "none";
+
+            const email = document.getElementById("email").value.trim();
+            const senha = document.getElementById("senha").value;
+
+            // POST /api/login: o backend confere o hash bcrypt e cria uma linha
+            // em a3_sessoes; o token (UUID) volta na resposta e vai pro localStorage.
+            const resposta = await fetch("/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, senha }),
+            });
+
+            const dados = await resposta.json();
+
+            if (!resposta.ok) {
+                mostrarErro(dados.erro || "Erro ao entrar.");
+                return;
+            }
+
+            salvarSessao(dados);
+            redirecionarPorNivel(dados.nivel);
+        });
+
+        tentarSessaoExistente();
+    </script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+"""routes/funcionarios.py — Cadastro e gestão de funcionários e seus cartões.
+
+Modelo de dados relevante:
+  a3_funcionarios (pessoa) 1—N a3_cartoes_rfid (cartão) N—N a3_areas (permissões)
+
+Um funcionário pode ter vários cartões, e cada cartão tem sua própria lista
+de áreas permitidas. Pessoa e cartão têm flags `ativo` independentes — a
+catraca nega o acesso se qualquer um dos dois estiver inativo.
+"""
+
+import bcrypt
+from flask import Blueprint, jsonify, request
+
+from auth import requer_admin, requer_login
+from db import get_cursor, normalizar_uid
+
+bp = Blueprint("funcionarios", __name__, url_prefix="/api")
+
+
+def _email_padrao(nome: str) -> str:
+    """E-mail gerado para contas criadas junto com o cadastro (nome sem espaços)."""
+    return nome.strip().lower().replace(" ", "") + "@sistema.com"
+
+
+@bp.route("/funcionarios", methods=["POST"])
+@requer_login
+@requer_admin
+def cadastrar_funcionario():
+    """Cadastro completo em uma transação só: funcionário + cartão + permissões.
+
+    Se nivel_acesso vier preenchido (admin/operador), também cria a conta de
+    login do funcionário, com senha inicial derivada do UID do cartão (os 8
+    primeiros caracteres) — a senha gerada volta na resposta para o admin
+    repassar à pessoa. Por fim, remove o UID da fila de pendentes (caso o
+    cadastro tenha partido de uma leitura na catraca).
+    """
+    dados = request.get_json(force=True) or {}
+    uid = normalizar_uid(dados.get("uid", ""))
+    nome = dados.get("nome", "").strip()
+    cargo = dados.get("cargo", "").strip()
+    nivel_acesso = dados.get("nivel_acesso")
+    areas = dados.get("areas", [])
+
+    if not uid or not nome:
+        return jsonify({"erro": "uid e nome são obrigatórios"}), 400
+
+    with get_cursor(commit=True) as cur:
+        cur.execute("SELECT 1 FROM a3_cartoes_rfid WHERE uid = %s", (uid,))
+        if cur.fetchone() is not None:
+            return jsonify({"erro": "UID já cadastrado"}), 409
+
+        cur.execute(
+            """INSERT INTO a3_funcionarios (nome, cargo, ativo)
+               VALUES (%s, %s, true) RETURNING id""",
+            (nome, cargo)
+        )
+        id_funcionario = cur.fetchone()["id"]
+
+        cur.execute(
+            """INSERT INTO a3_cartoes_rfid (uid, id_funcionario, ativo)
+               VALUES (%s, %s, true) RETURNING id""",
+            (uid, id_funcionario)
+        )
+        id_cartao = cur.fetchone()["id"]
+
+        for id_area in areas:
+            cur.execute(
+                "INSERT INTO a3_permissoes (id_cartao, id_area) VALUES (%s, %s)",
+                (id_cartao, id_area)
+            )
+
+        senha_gerada = None
+        if nivel_acesso:
+            email = _email_padrao(nome)
+            senha_gerada = uid.replace(" ", "")[:8]
+            senha_hash = bcrypt.hashpw(senha_gerada.encode(), bcrypt.gensalt()).decode()
+            cur.execute(
+                """INSERT INTO a3_usuarios (nome, email, senha_hash, nivel_acesso, id_funcionario)
+                   VALUES (%s, %s, %s, %s, %s)""",
+                (nome, email, senha_hash, nivel_acesso, id_funcionario)
+            )
+
+        cur.execute("DELETE FROM a3_uids_pendentes WHERE uid = %s", (uid,))
+
+        cur.execute("SELECT * FROM a3_funcionarios WHERE id = %s", (id_funcionario,))
+        funcionario = dict(cur.fetchone())
+
+    funcionario["uid"] = uid
+    funcionario["areas"] = areas
+    if senha_gerada:
+        funcionario["usuario_criado"] = {"senha_inicial": senha_gerada}
+
+    return jsonify(funcionario), 201
+
+
+@bp.route("/funcionarios", methods=["GET"])
+@requer_login
+@requer_admin
+def listar_funcionarios():
+    """Lista funcionários com busca por nome/cargo (ILIKE) e filtro de status.
+
+    A resposta é aninhada: cada funcionário traz seus cartões, e cada cartão
+    traz as áreas que ele pode acessar — é o formato que a tabela da aba
+    Funcionários consome direto.
+    """
+    nome = request.args.get("nome", "").strip()
+    cargo = request.args.get("cargo", "").strip()
+    status = request.args.get("status", "").strip()
+
+    condicoes = ["1=1"]
+    params = []
+
+    if nome:
+        condicoes.append("nome ILIKE %s")
+        params.append(f"%{nome}%")
+    if cargo:
+        condicoes.append("cargo ILIKE %s")
+        params.append(f"%{cargo}%")
+    if status == "ativo":
+        condicoes.append("ativo = true")
+    elif status == "inativo":
+        condicoes.append("ativo = false")
+
+    with get_cursor() as cur:
+        cur.execute(
+            f"SELECT * FROM a3_funcionarios WHERE {' AND '.join(condicoes)} ORDER BY nome ASC",
+            params
+        )
+        funcionarios = [dict(f) for f in cur.fetchall()]
+
+        for funcionario in funcionarios:
+            cur.execute(
+                "SELECT id, uid, ativo FROM a3_cartoes_rfid WHERE id_funcionario = %s",
+                (funcionario["id"],)
+            )
+            cartoes = [dict(c) for c in cur.fetchall()]
+
+            for cartao in cartoes:
+                cur.execute(
+                    """SELECT a.id, a.nome FROM a3_permissoes p
+                       JOIN a3_areas a ON a.id = p.id_area
+                       WHERE p.id_cartao = %s""",
+                    (cartao["id"],)
+                )
+                cartao["areas"] = [dict(a) for a in cur.fetchall()]
+
+            funcionario["cartoes"] = cartoes
+
+    return jsonify(funcionarios)
+
+
+@bp.route("/funcionarios/<int:id_funcionario>/cartoes/<int:id_cartao>", methods=["PUT"])
+@requer_login
+@requer_admin
+def alterar_status_cartao(id_funcionario, id_cartao):
+    """Ativa/desativa um cartão específico (ex.: cartão perdido) sem mexer no funcionário."""
+    dados = request.get_json(force=True) or {}
+    ativo = bool(dados.get("ativo", True))
+
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            "UPDATE a3_cartoes_rfid SET ativo = %s WHERE id = %s AND id_funcionario = %s",
+            (ativo, id_cartao, id_funcionario)
+        )
+        if cur.rowcount == 0:
+            return jsonify({"erro": "Cartão não encontrado"}), 404
+
+    return jsonify({"sucesso": True})
+
+
+@bp.route("/funcionarios/<int:id_funcionario>", methods=["PUT"])
+@requer_login
+@requer_admin
+def alterar_status_funcionario(id_funcionario):
+    """Ativa/desativa o funcionário (não confundir com o status de cada cartão dele)."""
+    dados = request.get_json(force=True) or {}
+    if "ativo" not in dados:
+        return jsonify({"erro": "ativo é obrigatório"}), 400
+    ativo = bool(dados["ativo"])
+
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            "UPDATE a3_funcionarios SET ativo = %s, atualizado_em = NOW() WHERE id = %s",
+            (ativo, id_funcionario)
+        )
+        if cur.rowcount == 0:
+            return jsonify({"erro": "Funcionário não encontrado"}), 404
+
+    return jsonify({"sucesso": True, "ativo": ativo})

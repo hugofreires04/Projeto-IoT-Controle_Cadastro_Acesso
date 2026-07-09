@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!--
+  operador.html — Painel do operador (funcionário comum com login)
+  Projeto IoT — Controle de Cadastro e Acesso via RFID (ENG4051 / PUC-Rio)
+
+  Mostra apenas o histórico de acessos DO PRÓPRIO usuário logado — o backend
+  força o filtro por id_funcionario para o nível "operador", então mesmo
+  alterando a URL da API não é possível ver acessos de outras pessoas.
+  Reutiliza o mesmo componente de tabela do admin (js/acessos.js), só que
+  sem o filtro de funcionário.
+-->
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Histórico — Controle de Acesso RFID</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Barra de navegação: título do sistema, usuário logado e logout -->
+    <nav>
+        <span class="nav-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="5" width="15" height="11" rx="2"/>
+                <circle cx="7.5" cy="10.5" r="1.6"/>
+                <path d="M18.5 8.5a5 5 0 0 1 0 4"/>
+                <path d="M21 6.5a8.5 8.5 0 0 1 0 8"/>
+            </svg>
+            Controle de Acesso RFID
+        </span>
+        <span id="header-usuario-nome" class="nav-usuario"></span>
+        <button id="btn-sair" class="btn-link">Sair</button>
+    </nav>
+
+    <main>
+        <h1>Meu histórico de acessos</h1>
+        <p class="subtitulo">Todas as suas passagens pela catraca — filtre por lugar, período ou resultado.</p>
+
+        <!-- Filtros: aplicados automaticamente ao mudar (ver js/acessos.js) -->
+        <div class="filtros">
+            <select id="filtro-area">
+                <option value="">Todas as áreas</option>
+            </select>
+            <label>De <input type="date" id="filtro-data-inicio"></label>
+            <label>Até <input type="date" id="filtro-data-fim"></label>
+        </div>
+
+        <!-- Filtros rápidos por resultado (pílulas) -->
+        <div class="badges-filtro">
+            <button class="badge-filtro ativo" data-resultado="">Todos</button>
+            <button class="badge-filtro" data-resultado="liberado">Liberado</button>
+            <button class="badge-filtro" data-resultado="negado_sem_permissao">Negado sem permissão</button>
+            <button class="badge-filtro" data-resultado="negado_inativo">Negado inativo</button>
+            <button class="badge-filtro" data-resultado="negado_desconhecido">Negado desconhecido</button>
+        </div>
+
+        <div class="acoes">
+            <button id="btn-aplicar-filtros" class="btn-secundario">Aplicar filtros</button>
+            <button id="btn-exportar-csv" class="btn-secundario">Exportar CSV</button>
+        </div>
+
+        <p id="totalizador" class="totalizador"></p>
+
+        <div class="tabela-card">
+            <table>
+                <thead>
+                    <tr><th>Funcionário</th><th>Área</th><th>Resultado</th><th>Data/Hora</th></tr>
+                </thead>
+                <tbody id="tabela-acessos-corpo"></tbody>
+            </table>
+        </div>
+
+        <div class="paginacao">
+            <button id="btn-pag-anterior">Anterior</button>
+            <span id="pag-info"></span>
+            <button id="btn-pag-proximo">Próximo</button>
+        </div>
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script src="js/acessos.js"></script>
+    <script>
+        exigirLogin();                                          // exige token de sessão
+        configurarHeaderUsuario();                              // nome do usuário + botão sair
+        initTabelaAcessos({ mostrarFiltroFuncionario: false }); // sem filtro de funcionário: o backend já restringe
+    </script>
+</body>
+</html>
